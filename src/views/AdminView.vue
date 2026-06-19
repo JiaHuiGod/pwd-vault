@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { usePasswordStore } from '../stores/password'
+import type { PasswordItem } from '../types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -13,6 +14,9 @@ const form = ref({ title: '', username: '', password: '', url: '', notes: '' })
 const showAddForm = ref(false)
 const adding = ref(false)
 const added = ref(false)
+
+// Detail modal
+const detailItem = ref<PasswordItem | null>(null)
 
 // Delete confirm
 const deletingId = ref<string | null>(null)
@@ -82,12 +86,16 @@ function cancelDelete() {
   deletingId.value = null
 }
 
+let copyTimer: ReturnType<typeof setTimeout> | null = null
+
 function copyToClipboard(text: string, field: string) {
   navigator.clipboard.writeText(text)
+  if (copyTimer) clearTimeout(copyTimer)
   copiedField.value = field
-  setTimeout(() => {
+  copyTimer = setTimeout(() => {
     copiedField.value = null
-  }, 1500)
+    copyTimer = null
+  }, 1200)
 }
 
 function generatePassword() {
@@ -211,7 +219,7 @@ function maskPassword(pwd: string): string {
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     {{ maskPassword(item.password) }}
                   </span>
-                  <span v-if="item.url" class="meta-chip url-chip" :title="item.url">
+                  <span v-if="item.url" class="meta-chip" @click="copyToClipboard(item.url!, `url-${item.id}`)">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                     {{ item.url }}
                   </span>
@@ -220,9 +228,13 @@ function maskPassword(pwd: string): string {
             </div>
             <div class="item-actions">
               <Transition name="fade">
-                <span v-if="copiedField === `user-${item.id}`" class="copy-toast">已复制</span>
-                <span v-else-if="copiedField === `psw-${item.id}`" class="copy-toast">已复制</span>
+                <span v-if="copiedField === `user-${item.id}`" class="copy-toast">账号已复制</span>
+                <span v-else-if="copiedField === `psw-${item.id}`" class="copy-toast">密码已复制</span>
+                <span v-else-if="copiedField === `url-${item.id}`" class="copy-toast">网址已复制</span>
               </Transition>
+              <button class="btn btn-ghost btn-sm detail-btn" title="详情" @click="detailItem = item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              </button>
               <button class="btn btn-ghost btn-sm btn-icon-only" title="删除" @click="confirmDelete(item.id)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
@@ -255,6 +267,72 @@ function maskPassword(pwd: string): string {
             <div class="delete-actions">
               <button class="btn btn-ghost" @click="cancelDelete">取消</button>
               <button class="btn btn-danger" @click="doDelete">删除</button>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+
+    <!-- Detail modal -->
+    <Transition name="scale">
+      <div v-if="detailItem" class="detail-overlay" @click.self="detailItem = null">
+        <Transition name="slide-up" appear>
+          <div class="detail-card glass-card glow-border">
+            <div class="detail-glow" />
+            <div class="detail-header">
+              <div class="detail-icon">{{ detailItem.title.charAt(0).toUpperCase() }}</div>
+              <div>
+                <h3>{{ detailItem.title }}</h3>
+                <p class="detail-sub">密码详情</p>
+              </div>
+              <button class="detail-close" @click="detailItem = null">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div class="detail-body">
+              <div class="detail-row">
+                <label class="detail-label">账号</label>
+                <div class="detail-value">
+                  <span>{{ detailItem.username || '—' }}</span>
+                  <Transition name="fade">
+                    <span v-if="copiedField === 'det-user'" class="copy-badge">已复制</span>
+                  </Transition>
+                  <button v-if="detailItem.username" class="detail-copy" @click="copyToClipboard(detailItem.username, 'det-user')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="detail-row">
+                <label class="detail-label">密码</label>
+                <div class="detail-value">
+                  <span>{{ detailItem.password }}</span>
+                  <Transition name="fade">
+                    <span v-if="copiedField === 'det-psw'" class="copy-badge">已复制</span>
+                  </Transition>
+                  <button class="detail-copy" @click="copyToClipboard(detailItem.password, 'det-psw')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div v-if="detailItem.url" class="detail-row">
+                <label class="detail-label">网址</label>
+                <div class="detail-value">
+                  <span>{{ detailItem.url }}</span>
+                  <Transition name="fade">
+                    <span v-if="copiedField === 'det-url'" class="copy-badge">已复制</span>
+                  </Transition>
+                  <button class="detail-copy" @click="copyToClipboard(detailItem.url!, 'det-url')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div v-if="detailItem.notes" class="detail-row detail-row-full">
+                <label class="detail-label">备注</label>
+                <p class="detail-notes">{{ detailItem.notes }}</p>
+              </div>
+            </div>
+            <div class="detail-footer">
+              <span class="detail-time">创建于 {{ new Date(detailItem.createdAt).toLocaleString() }}</span>
             </div>
           </div>
         </Transition>
@@ -503,9 +581,6 @@ function maskPassword(pwd: string): string {
   font-family: monospace;
   letter-spacing: 1px;
 }
-.url-chip {
-  max-width: 180px;
-}
 
 .item-actions {
   display: flex;
@@ -599,5 +674,159 @@ function maskPassword(pwd: string): string {
 }
 .list-move {
   transition: transform 0.3s ease;
+}
+
+/* Detail button */
+.detail-btn {
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text-muted);
+}
+.detail-btn:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: transparent;
+}
+
+/* Detail modal */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+.detail-card {
+  position: relative;
+  width: 400px;
+  padding: 32px 28px 20px;
+  overflow: hidden;
+}
+.detail-glow {
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 70% 20%, rgba(99, 102, 241, 0.06), transparent 60%);
+  pointer-events: none;
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.detail-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent-subtle), rgba(99, 102, 241, 0.05));
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.detail-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.detail-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.detail-close {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all var(--transition-fast);
+}
+.detail-close:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.detail-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.detail-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-glass);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+.copy-badge {
+  font-size: 0.7rem;
+  color: var(--success);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.detail-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+.detail-copy:hover {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+.detail-notes {
+  padding: 10px 12px;
+  background: var(--bg-glass);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.detail-footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+  text-align: center;
+}
+.detail-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 </style>
