@@ -72,7 +72,7 @@ fn create_quick_add_window(app: tauri::AppHandle) {
             tauri::WebviewUrl::App("index.html#/quick-add".into()),
         )
         .title("快速添加密码")
-        .inner_size(380.0, 380.0)
+        .inner_size(380.0, 400.0)
         .resizable(false)
         .decorations(false)
         .always_on_top(true)

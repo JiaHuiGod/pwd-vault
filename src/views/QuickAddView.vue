@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { usePasswordStore } from '../stores/password';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { emit } from '@tauri-apps/api/event';
@@ -8,6 +8,22 @@ const pswStore = usePasswordStore();
 const form = ref({ title: '', username: '', password: '', url: '', notes: '' });
 const saved = ref(false);
 const copied = ref(false);
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    closeWindow();
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    save();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown);
+});
 
 function generatePassword() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -135,8 +151,9 @@ function save() {
           :disabled="!form.title || !form.password || !form.username || saved"
           @click="save"
         >
-          {{ saved ? '✓ 已保存，即将关闭' : '保存' }}
+          {{ saved ? '✓ 已保存，即将关闭' : '保存  (Ctrl+Enter)' }}
         </button>
+        <span class="hint">按 Esc 关闭</span>
       </div>
     </div>
   </div>
@@ -301,5 +318,12 @@ body {
 }
 .btn-full {
   width: 100%;
+}
+.hint {
+  display: block;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #5c5c6e;
+  margin-top: 8px;
 }
 </style>
