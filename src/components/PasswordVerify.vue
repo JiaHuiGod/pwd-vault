@@ -29,7 +29,7 @@ watch(
   },
 )
 
-function handleSubmit() {
+async function handleSubmit() {
   error.value = ''
   if (!password.value) {
     error.value = '请输入密码'
@@ -39,8 +39,8 @@ function handleSubmit() {
   loading.value = true
 
   // Simulate brief delay for UX
-  setTimeout(() => {
-    if (isSettingPassword) {
+  setTimeout(async () => {
+    if (isSettingPassword.value) {
       if (password.value !== confirmPassword.value) {
         error.value = '两次输入的密码不一致'
         loading.value = false
@@ -52,13 +52,13 @@ function handleSubmit() {
         return
       }
       success.value = true
-      setTimeout(() => {
-        auth.setInitialPassword(password.value)
+      setTimeout(async () => {
+        await auth.setInitialPassword(password.value)
         loading.value = false
         router.push('/admin')
       }, 600)
     } else {
-      const ok = auth.login(password.value)
+      const ok = await auth.login(password.value)
       if (ok) {
         success.value = true
         setTimeout(() => {

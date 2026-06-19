@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+import { usePasswordStore } from './password'
 
-const ADMIN_PASSWORD_KEY = 'psw_admin_password'
 const AUTH_SESSION_KEY = 'psw_auth_session'
 const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
 
@@ -12,12 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null
 
-  const hasPassword = computed(() => {
-    return !!localStorage.getItem(ADMIN_PASSWORD_KEY)
-  })
+  const hasPassword = ref(false)
 
-  function getStoredPassword(): string {
-    return localStorage.getItem(ADMIN_PASSWORD_KEY) || ''
+  async function checkHasPassword() {
+    try {
+      hasPassword.value = await invoke<boolean>('has_vault_file')
+    } catch {
+      hasPassword.value = false
+    }
   }
 
   function checkSession() {
@@ -35,9 +38,10 @@ export const useAuthStore = defineStore('auth', () => {
     return false
   }
 
-  function login(password: string): boolean {
-    const stored = getStoredPassword()
-    if (stored && password === stored) {
+  async function login(password: string): Promise<boolean> {
+    const pswStore = usePasswordStore()
+    const ok = await pswStore.loadPasswords(password)
+    if (ok) {
       isLoggedIn.value = true
       showVerifyModal.value = false
       const session = { expires: Date.now() + IDLE_TIMEOUT }
@@ -48,8 +52,20 @@ export const useAuthStore = defineStore('auth', () => {
     return false
   }
 
-  function setInitialPassword(password: string) {
-    localStorage.setItem(ADMIN_PASSWORD_KEY, password)
+  async function setInitialPassword(password: string) {
+    const pswStore = usePasswordStore()
+    // Merge any temp passwords into the vault
+    const tempRaw = localStorage.getItem('psw_temp_passwords')
+    let data: string
+    if (tempRaw) {
+      data = tempRaw
+      localStorage.removeItem('psw_temp_passwords')
+    } else {
+      data = JSON.stringify([])
+    }
+    await invoke('encrypt_save', { data, key: password })
+    // Load vault
+    await pswStore.loadPasswords(password)
     isLoggedIn.value = true
     showVerifyModal.value = false
     const session = { expires: Date.now() + IDLE_TIMEOUT }
@@ -73,7 +89,6 @@ export const useAuthStore = defineStore('auth', () => {
   function resetIdleTimer() {
     if (isLoggedIn.value) {
       startIdleTimer()
-      // Extend session in storage
       const session = { expires: Date.now() + IDLE_TIMEOUT }
       localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session))
     }
@@ -91,6 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
     showVerifyModal,
     pendingAction,
     hasPassword,
+    checkHasPassword,
     checkSession,
     login,
     setInitialPassword,

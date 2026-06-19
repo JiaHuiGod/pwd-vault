@@ -1,3 +1,7 @@
+mod crypto;
+mod store;
+
+use std::sync::Mutex;
 use tauri::{
     Emitter, Manager,
     menu::{Menu, MenuItem},
@@ -6,7 +10,33 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
 
-static CURRENT_SHORTCUT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+static CURRENT_SHORTCUT: Mutex<Option<String>> = Mutex::new(None);
+
+// ─── Vault Commands ───────────────────────────────────────────────
+
+#[tauri::command]
+fn encrypt_save(app: tauri::AppHandle, data: String, key: String) -> Result<(), String> {
+    let encrypted = crypto::encrypt(&data, &key)?;
+    store::write_vault(&app, &encrypted)
+}
+
+#[tauri::command]
+fn decrypt_load(app: tauri::AppHandle, key: String) -> Result<String, String> {
+    let raw = store::read_vault(&app)?;
+    crypto::decrypt(&raw, &key)
+}
+
+#[tauri::command]
+fn has_vault_file(app: tauri::AppHandle) -> bool {
+    store::vault_exists(&app)
+}
+
+#[tauri::command]
+fn get_config_dir(app: tauri::AppHandle) -> String {
+    store::config_dir_string(&app)
+}
+
+// ─── Quick Add Window ────────────────────────────────────────────
 
 #[tauri::command]
 fn create_quick_add_window(app: tauri::AppHandle) {
@@ -38,6 +68,8 @@ fn create_quick_add_window(app: tauri::AppHandle) {
     }
 }
 
+// ─── Shortcut ────────────────────────────────────────────────────
+
 fn parse_shortcut(combo: &str) -> Result<Shortcut, String> {
     let parts: Vec<&str> = combo.split('+').collect();
     let mut modifiers = Modifiers::empty();
@@ -47,9 +79,13 @@ fn parse_shortcut(combo: &str) -> Result<Shortcut, String> {
         match part.trim().to_lowercase().as_str() {
             "cmdorctrl" | "cmd" | "ctrl" | "control" => {
                 #[cfg(target_os = "macos")]
-                { modifiers |= Modifiers::SUPER; }
+                {
+                    modifiers |= Modifiers::SUPER;
+                }
                 #[cfg(not(target_os = "macos"))]
-                { modifiers |= Modifiers::CONTROL; }
+                {
+                    modifiers |= Modifiers::CONTROL;
+                }
             }
             "alt" | "option" => modifiers |= Modifiers::ALT,
             "shift" => modifiers |= Modifiers::SHIFT,
@@ -104,10 +140,8 @@ fn parse_shortcut(combo: &str) -> Result<Shortcut, String> {
     Ok(Shortcut::new(Some(modifiers), c))
 }
 
-/// Register a custom global shortcut (e.g. "CmdOrCtrl+Alt+P")
 #[tauri::command]
 fn set_global_shortcut(app: tauri::AppHandle, combo: String) -> Result<(), String> {
-    // Unregister previous
     let prev = CURRENT_SHORTCUT.lock().unwrap().take();
     if let Some(ref prev_combo) = prev {
         if let Ok(shortcut) = parse_shortcut(prev_combo) {
@@ -133,13 +167,14 @@ fn set_global_shortcut(app: tauri::AppHandle, combo: String) -> Result<(), Strin
     Ok(())
 }
 
+// ─── Entry Point ─────────────────────────────────────────────────
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            // Build tray menu
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quick_add =
                 MenuItem::with_id(app, "quick_add", "快速添加密码", true, None::<&str>)?;
@@ -177,6 +212,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             create_quick_add_window,
             set_global_shortcut,
+            encrypt_save,
+            decrypt_load,
+            has_vault_file,
+            get_config_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

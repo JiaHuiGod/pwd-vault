@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import type { PasswordItem } from '../types'
 
-const STORAGE_KEY = 'psw_passwords'
+const TEMP_STORAGE_KEY = 'psw_temp_passwords'
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -11,6 +12,7 @@ function generateId(): string {
 export const usePasswordStore = defineStore('passwords', () => {
   const passwords = ref<PasswordItem[]>([])
   const searchQuery = ref('')
+  const _adminPassword = ref('')
 
   const filteredPasswords = computed(() => {
     const q = searchQuery.value.toLowerCase().trim()
@@ -23,9 +25,24 @@ export const usePasswordStore = defineStore('passwords', () => {
     )
   })
 
-  function loadPasswords() {
+  const isEncrypted = computed(() => !!_adminPassword.value)
+
+  /** Load passwords from encrypted vault. Must be called after login. */
+  async function loadPasswords(adminPassword: string): Promise<boolean> {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = await invoke<string>('decrypt_load', { key: adminPassword })
+      _adminPassword.value = adminPassword
+      passwords.value = JSON.parse(raw)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /** Load temp passwords from localStorage (normal page, not logged in). */
+  function loadTempPasswords() {
+    try {
+      const raw = localStorage.getItem(TEMP_STORAGE_KEY)
       if (raw) {
         passwords.value = JSON.parse(raw)
       }
@@ -34,11 +51,41 @@ export const usePasswordStore = defineStore('passwords', () => {
     }
   }
 
-  function savePasswords() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(passwords.value))
+  function saveTempPasswords() {
+    localStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(passwords.value))
   }
 
-  function addPassword(item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt'>): PasswordItem {
+  async function _save() {
+    if (_adminPassword.value) {
+      try {
+        await invoke('encrypt_save', {
+          data: JSON.stringify(passwords.value),
+          key: _adminPassword.value,
+        })
+      } catch (e) {
+        console.error('加密保存失败:', e)
+      }
+    } else {
+      saveTempPasswords()
+    }
+  }
+
+  async function migrateTempToVault() {
+    const tempRaw = localStorage.getItem(TEMP_STORAGE_KEY)
+    if (!tempRaw) return
+    try {
+      const tempItems: PasswordItem[] = JSON.parse(tempRaw)
+      if (tempItems.length === 0) return
+      // Merge and save
+      passwords.value = [...tempItems, ...passwords.value]
+      localStorage.removeItem(TEMP_STORAGE_KEY)
+      await _save()
+    } catch {
+      // ignore
+    }
+  }
+
+  async function addPassword(item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<PasswordItem> {
     const now = Date.now()
     const newItem: PasswordItem = {
       ...item,
@@ -47,16 +94,16 @@ export const usePasswordStore = defineStore('passwords', () => {
       updatedAt: now,
     }
     passwords.value.unshift(newItem)
-    savePasswords()
+    await _save()
     return newItem
   }
 
-  function deletePassword(id: string) {
+  async function deletePassword(id: string) {
     passwords.value = passwords.value.filter((p) => p.id !== id)
-    savePasswords()
+    await _save()
   }
 
-  function updatePassword(id: string, data: Partial<Omit<PasswordItem, 'id' | 'createdAt'>>) {
+  async function updatePassword(id: string, data: Partial<Omit<PasswordItem, 'id' | 'createdAt'>>) {
     const idx = passwords.value.findIndex((p) => p.id === id)
     if (idx !== -1) {
       passwords.value[idx] = {
@@ -64,7 +111,7 @@ export const usePasswordStore = defineStore('passwords', () => {
         ...data,
         updatedAt: Date.now(),
       }
-      savePasswords()
+      await _save()
     }
   }
 
@@ -72,7 +119,10 @@ export const usePasswordStore = defineStore('passwords', () => {
     passwords,
     searchQuery,
     filteredPasswords,
+    isEncrypted,
     loadPasswords,
+    loadTempPasswords,
+    migrateTempToVault,
     addPassword,
     deletePassword,
     updatePassword,

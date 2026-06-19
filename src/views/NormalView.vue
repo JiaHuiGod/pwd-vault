@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { usePasswordStore } from '../stores/password'
 import PasswordVerify from '../components/PasswordVerify.vue'
@@ -17,6 +17,11 @@ const form = reactive({
   password: '',
 })
 const saved = ref(false)
+
+onMounted(() => {
+  auth.checkHasPassword()
+  pswStore.loadTempPasswords()
+})
 
 // Secret entrance: click the shield icon 5 times rapidly
 function onLogoClick() {

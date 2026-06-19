@@ -25,8 +25,7 @@ onMounted(() => {
     router.push('/')
     return
   }
-  pswStore.loadPasswords()
-  // Reset idle timer on any interaction
+  // Passwords already loaded during login; no need to load again
   document.addEventListener('click', onActivity)
   document.addEventListener('keydown', onActivity)
 })
