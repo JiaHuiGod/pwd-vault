@@ -113,6 +113,5 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     resetIdleTimer,
     startIdleTimer,
-    stopIdleTimer,
   }
 })

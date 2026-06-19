@@ -22,7 +22,3 @@ export interface CloseActionPreference {
   remember: boolean
 }
 
-export interface ShortcutConfig {
-  enabled: boolean
-  combo: string
-}

@@ -25,8 +25,6 @@ export const usePasswordStore = defineStore('passwords', () => {
     )
   })
 
-  const isEncrypted = computed(() => !!_adminPassword.value)
-
   /** Load passwords from encrypted vault. Must be called after login. */
   async function loadPasswords(adminPassword: string): Promise<boolean> {
     try {
@@ -70,21 +68,6 @@ export const usePasswordStore = defineStore('passwords', () => {
     }
   }
 
-  async function migrateTempToVault() {
-    const tempRaw = localStorage.getItem(TEMP_STORAGE_KEY)
-    if (!tempRaw) return
-    try {
-      const tempItems: PasswordItem[] = JSON.parse(tempRaw)
-      if (tempItems.length === 0) return
-      // Merge and save
-      passwords.value = [...tempItems, ...passwords.value]
-      localStorage.removeItem(TEMP_STORAGE_KEY)
-      await _save()
-    } catch {
-      // ignore
-    }
-  }
-
   async function addPassword(item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<PasswordItem> {
     const now = Date.now()
     const newItem: PasswordItem = {
@@ -103,28 +86,13 @@ export const usePasswordStore = defineStore('passwords', () => {
     await _save()
   }
 
-  async function updatePassword(id: string, data: Partial<Omit<PasswordItem, 'id' | 'createdAt'>>) {
-    const idx = passwords.value.findIndex((p) => p.id === id)
-    if (idx !== -1) {
-      passwords.value[idx] = {
-        ...passwords.value[idx],
-        ...data,
-        updatedAt: Date.now(),
-      }
-      await _save()
-    }
-  }
-
   return {
     passwords,
     searchQuery,
     filteredPasswords,
-    isEncrypted,
     loadPasswords,
     loadTempPasswords,
-    migrateTempToVault,
     addPassword,
     deletePassword,
-    updatePassword,
   }
 })
