@@ -18,6 +18,11 @@ const added = ref(false)
 // Detail modal
 const detailItem = ref<PasswordItem | null>(null)
 
+// Edit modal
+const editItem = ref<PasswordItem | null>(null)
+const editForm = ref({ title: '', username: '', password: '', url: '', notes: '' })
+const editing = ref(false)
+
 // Delete confirm
 const deletingId = ref<string | null>(null)
 
@@ -105,6 +110,7 @@ function generatePassword() {
     pwd += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   form.value.password = pwd
+  return pwd
 }
 
 function handleLogout() {
@@ -113,7 +119,30 @@ function handleLogout() {
 }
 
 function maskPassword(pwd: string): string {
-  return '•'.repeat(Math.min(pwd.length, 12)) + (pwd.length > 12 ? '' : '')
+  return '•'.repeat(Math.min(pwd.length, 12))
+}
+
+function startEdit(item: PasswordItem) {
+  editItem.value = item
+  editForm.value = {
+    title: item.title,
+    username: item.username,
+    password: item.password,
+    url: item.url || '',
+    notes: item.notes || '',
+  }
+}
+
+function cancelEdit() {
+  editItem.value = null
+}
+
+async function saveEdit() {
+  if (!editItem.value || !editForm.value.title || !editForm.value.password || !editForm.value.username) return
+  editing.value = true
+  await pswStore.updatePassword(editItem.value.id, editForm.value)
+  editing.value = false
+  editItem.value = null
 }
 </script>
 
@@ -235,6 +264,9 @@ function maskPassword(pwd: string): string {
               <button class="btn btn-ghost btn-sm detail-btn" title="详情" @click="detailItem = item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
               </button>
+              <button class="btn btn-ghost btn-sm detail-btn" title="编辑" @click="startEdit(item)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              </button>
               <button class="btn btn-ghost btn-sm btn-icon-only" title="删除" @click="confirmDelete(item.id)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
               </button>
@@ -333,6 +365,58 @@ function maskPassword(pwd: string): string {
             </div>
             <div class="detail-footer">
               <span class="detail-time">创建于 {{ new Date(detailItem.createdAt).toLocaleString() }}</span>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
+
+    <!-- Edit modal -->
+    <Transition name="scale">
+      <div v-if="editItem" class="detail-overlay" @click.self="cancelEdit">
+        <Transition name="slide-up" appear>
+          <div class="detail-card glass-card glow-border">
+            <div class="detail-glow" />
+            <div class="detail-header">
+              <div class="detail-icon">{{ editItem.title.charAt(0).toUpperCase() }}</div>
+              <div>
+                <h3>修改密码</h3>
+                <p class="detail-sub">{{ editItem.title }}</p>
+              </div>
+              <button class="detail-close" @click="cancelEdit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div class="edit-body">
+              <div class="field">
+                <label class="label">标题 *</label>
+                <input v-model="editForm.title" class="input" placeholder="例如: GitHub" />
+              </div>
+              <div class="field">
+                <label class="label">用户名/邮箱 *</label>
+                <input v-model="editForm.username" class="input" placeholder="用户名或邮箱" />
+              </div>
+              <div class="field">
+                <label class="label">密码 *</label>
+                <div class="password-input-wrap">
+                  <input v-model="editForm.password" class="input" type="text" placeholder="密码" />
+                  <button class="btn btn-ghost btn-sm gen-btn" @click="editForm.password = generatePassword()">生成</button>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">网址</label>
+                <input v-model="editForm.url" class="input" placeholder="https://" />
+              </div>
+              <div class="field">
+                <label class="label">备注</label>
+                <input v-model="editForm.notes" class="input" placeholder="备注信息..." />
+              </div>
+            </div>
+            <div class="edit-footer">
+              <button class="btn btn-ghost" @click="cancelEdit">取消</button>
+              <button class="btn btn-primary" :disabled="!editForm.title || !editForm.password || !editForm.username || editing" @click="saveEdit">
+                {{ editing ? '保存中...' : '保存修改' }}
+              </button>
             </div>
           </div>
         </Transition>
@@ -828,5 +912,23 @@ function maskPassword(pwd: string): string {
 .detail-time {
   font-size: 0.72rem;
   color: var(--text-muted);
+}
+
+/* Edit modal */
+.edit-body {
+  padding: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.edit-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+}
+.edit-footer .btn {
+  min-width: 80px;
 }
 </style>

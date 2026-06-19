@@ -86,6 +86,18 @@ export const usePasswordStore = defineStore('passwords', () => {
     await _save()
   }
 
+  async function updatePassword(id: string, data: Partial<Omit<PasswordItem, 'id' | 'createdAt'>>) {
+    const idx = passwords.value.findIndex((p) => p.id === id)
+    if (idx !== -1) {
+      passwords.value[idx] = {
+        ...passwords.value[idx],
+        ...data,
+        updatedAt: Date.now(),
+      }
+      await _save()
+    }
+  }
+
   return {
     passwords,
     searchQuery,
@@ -94,5 +106,6 @@ export const usePasswordStore = defineStore('passwords', () => {
     loadTempPasswords,
     addPassword,
     deletePassword,
+    updatePassword,
   }
 })
