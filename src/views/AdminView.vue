@@ -51,7 +51,7 @@ function toggleForm() {
 }
 
 function addPassword() {
-  if (!form.value.title || !form.value.password) return
+  if (!form.value.title || !form.value.password || !form.value.username) return
   adding.value = true
   setTimeout(() => {
     pswStore.addPassword({
@@ -169,7 +169,7 @@ function maskPassword(pwd: string): string {
               <input v-model="form.url" class="input" placeholder="https://" />
             </div>
             <div class="field">
-              <label class="label">账号</label>
+              <label class="label">用户名/邮箱 *</label>
               <input v-model="form.username" class="input" placeholder="用户名或邮箱" />
             </div>
             <div class="field">
@@ -187,7 +187,7 @@ function maskPassword(pwd: string): string {
               <input v-model="form.notes" class="input" placeholder="备注信息..." />
             </div>
           </div>
-          <button class="btn btn-primary btn-full" :disabled="!form.title || !form.password || adding" @click="addPassword">
+          <button class="btn btn-primary btn-full" :disabled="!form.title || !form.password || !form.username || adding" @click="addPassword">
             <Transition name="fade" mode="out-in">
               <span v-if="adding && !added" class="spinner" />
               <span v-else-if="added" class="saved-text">
@@ -291,7 +291,7 @@ function maskPassword(pwd: string): string {
             </div>
             <div class="detail-body">
               <div class="detail-row">
-                <label class="detail-label">账号</label>
+                <label class="detail-label">用户名/邮箱</label>
                 <div class="detail-value">
                   <span>{{ detailItem.username || '—' }}</span>
                   <Transition name="fade">

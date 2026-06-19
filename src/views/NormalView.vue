@@ -15,8 +15,19 @@ const form = reactive({
   title: '',
   username: '',
   password: '',
+  url: '',
+  notes: '',
 })
 const saved = ref(false)
+
+function generatePassword() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+  let pwd = ''
+  for (let i = 0; i < 16; i++) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  form.password = pwd
+}
 
 onMounted(() => {
   auth.checkHasPassword()
@@ -53,16 +64,20 @@ function onVerifyClose() {
 }
 
 function saveQuickPassword() {
-  if (!form.title || !form.password) return
+  if (!form.title || !form.password || !form.username) return
   pswStore.addPassword({
     title: form.title,
     username: form.username,
     password: form.password,
+    url: form.url || undefined,
+    notes: form.notes || undefined,
   })
   saved.value = true
   form.title = ''
   form.username = ''
   form.password = ''
+  form.url = ''
+  form.notes = ''
   setTimeout(() => {
     saved.value = false
   }, 2000)
@@ -80,16 +95,15 @@ function saveQuickPassword() {
     <div class="secret-trigger-area" @click="onLogoClick" />
 
     <div class="content">
-      <!-- Logo area -->
+      <!-- Logo area (compact) -->
       <div class="brand">
         <div class="brand-icon" @click="onLogoClick">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
         <h1 class="gradient-text">Vault</h1>
-        <p class="brand-sub">安全密码管理</p>
       </div>
 
       <!-- Quick add card -->
@@ -102,23 +116,34 @@ function saveQuickPassword() {
           <span>新增密码</span>
         </div>
         <div class="card-body">
-          <div class="form-row">
-            <div class="field flex-1">
-              <label class="label">标题</label>
-              <input v-model="form.title" class="input" placeholder="例如: GitHub" />
-            </div>
+          <div class="field">
+            <label class="label">标题 *</label>
+            <input v-model="form.title" class="input" placeholder="例如: GitHub" />
           </div>
           <div class="form-row">
             <div class="field flex-1">
-              <label class="label">账号</label>
+              <label class="label">用户名/邮箱 *</label>
               <input v-model="form.username" class="input" placeholder="用户名或邮箱" />
             </div>
             <div class="field flex-1">
-              <label class="label">密码</label>
-              <input v-model="form.password" class="input" type="text" placeholder="密码" />
+              <label class="label">密码 *</label>
+              <div class="password-input-wrap">
+                <input v-model="form.password" class="input" type="text" placeholder="密码" />
+                <button class="btn btn-ghost btn-sm gen-btn" @click="generatePassword" title="生成随机密码">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                </button>
+              </div>
             </div>
           </div>
-          <button class="btn btn-primary btn-save" :disabled="!form.title || !form.password" @click="saveQuickPassword">
+          <div class="field">
+            <label class="label">网址</label>
+            <input v-model="form.url" class="input" placeholder="https://" />
+          </div>
+          <div class="field">
+            <label class="label">备注</label>
+            <input v-model="form.notes" class="input" placeholder="备注信息..." />
+          </div>
+          <button class="btn btn-primary btn-save" :disabled="!form.title || !form.password || !form.username" @click="saveQuickPassword">
             <Transition name="fade" mode="out-in">
               <span v-if="saved" class="saved-indicator">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -199,19 +224,19 @@ function saveQuickPassword() {
 
 .brand {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .brand-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--accent-subtle), rgba(99, 102, 241, 0.05));
   color: var(--accent);
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   transition: all var(--transition-normal);
   cursor: pointer;
 }
@@ -220,28 +245,22 @@ function saveQuickPassword() {
 }
 
 .brand h1 {
-  font-size: 2rem;
+  font-size: 1.3rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-bottom: 4px;
-}
-
-.brand-sub {
-  font-size: 0.9rem;
-  color: var(--text-muted);
 }
 
 .add-card {
-  padding: 28px;
+  padding: 20px;
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1rem;
+  gap: 8px;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   color: var(--text-primary);
 }
 
@@ -252,7 +271,7 @@ function saveQuickPassword() {
 .card-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .form-row {
@@ -267,6 +286,17 @@ function saveQuickPassword() {
 
 .flex-1 {
   flex: 1;
+}
+
+.password-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+.password-input-wrap .input {
+  flex: 1;
+}
+.gen-btn {
+  white-space: nowrap;
 }
 
 .btn-save {
