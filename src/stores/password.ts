@@ -59,12 +59,18 @@ export const usePasswordStore = defineStore('passwords', () => {
   async function _save() {
     if (_adminPassword.value) {
       try {
-        // Merge with existing vault data to avoid overwriting other changes
+        // Merge with existing vault data to add any entries not in current memory,
+        // but remove any entries that were deleted from memory
         const raw = await invoke<string>('decrypt_load', { key: _adminPassword.value })
         const existing: PasswordItem[] = JSON.parse(raw)
-        // Build a map by id from existing vault data
         const existingMap = new Map(existing.map((p) => [p.id, p]))
-        // Update with current in-memory state
+        // Remove entries that were explicitly deleted from memory
+        for (const [id] of existingMap) {
+          if (!passwords.value.some((p) => p.id === id)) {
+            existingMap.delete(id)
+          }
+        }
+        // Update/add with current in-memory state
         for (const p of passwords.value) {
           existingMap.set(p.id, p)
         }
