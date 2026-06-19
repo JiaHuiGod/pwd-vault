@@ -95,7 +95,7 @@ function saveQuickPassword() {
     <div class="secret-trigger-area" @click="onLogoClick" />
 
     <div class="content">
-      <!-- Logo area (compact) -->
+      <!-- Logo area (horizontal) -->
       <div class="brand">
         <div class="brand-icon" @click="onLogoClick">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -223,8 +223,12 @@ function saveQuickPassword() {
 }
 
 .brand {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   margin-bottom: 24px;
+  user-select: none;
 }
 
 .brand-icon {
@@ -236,9 +240,9 @@ function saveQuickPassword() {
   border-radius: 12px;
   background: linear-gradient(135deg, var(--accent-subtle), rgba(99, 102, 241, 0.05));
   color: var(--accent);
-  margin-bottom: 6px;
   transition: all var(--transition-normal);
   cursor: pointer;
+  flex-shrink: 0;
 }
 .brand-icon:hover {
   transform: scale(1.05);

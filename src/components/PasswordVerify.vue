@@ -13,7 +13,6 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
 const loading = ref(false)
-const success = ref(false)
 
 const isSettingPassword = computed(() => auth.pendingAction === 'setPassword')
 
@@ -24,7 +23,6 @@ watch(
       password.value = ''
       confirmPassword.value = ''
       error.value = ''
-      success.value = false
     }
   },
 )
@@ -38,39 +36,32 @@ async function handleSubmit() {
 
   loading.value = true
 
-  // Simulate brief delay for UX
-  setTimeout(async () => {
-    if (isSettingPassword.value) {
-      if (password.value !== confirmPassword.value) {
-        error.value = '两次输入的密码不一致'
-        loading.value = false
-        return
-      }
-      if (password.value.length < 4) {
-        error.value = '密码至少 4 位'
-        loading.value = false
-        return
-      }
-      success.value = true
-      setTimeout(async () => {
-        await auth.setInitialPassword(password.value)
-        loading.value = false
-        router.push('/admin')
-      }, 600)
-    } else {
-      const ok = await auth.login(password.value)
-      if (ok) {
-        success.value = true
-        setTimeout(() => {
-          loading.value = false
-          router.push('/admin')
-        }, 400)
-      } else {
-        error.value = '密码错误'
-        loading.value = false
-      }
+  if (isSettingPassword.value) {
+    if (password.value !== confirmPassword.value) {
+      error.value = '两次输入的密码不一致'
+      loading.value = false
+      return
     }
-  }, 300)
+    if (password.value.length < 4) {
+      error.value = '密码至少 4 位'
+      loading.value = false
+      return
+    }
+    await auth.setInitialPassword(password.value)
+    loading.value = false
+    auth.showVerifyModal = false
+    router.push('/admin')
+  } else {
+    const ok = await auth.login(password.value)
+    if (ok) {
+      loading.value = false
+      auth.showVerifyModal = false
+      router.push('/admin')
+    } else {
+      error.value = '密码错误'
+      loading.value = false
+    }
+  }
 }
 </script>
 
@@ -118,20 +109,11 @@ async function handleSubmit() {
               />
             </div>
 
-            <Transition name="fade">
-              <p v-if="error" class="error-msg">{{ error }}</p>
-            </Transition>
+            <!-- no success banner, go immediately -->
 
-            <Transition name="fade">
-              <p v-if="success" class="success-msg">
-                验证通过
-                <span class="check-icon">✓</span>
-              </p>
-            </Transition>
-
-            <button type="submit" class="btn btn-primary btn-full" :disabled="loading || success">
+            <button type="submit" class="btn btn-primary btn-full" :disabled="loading">
               <span v-if="loading" class="spinner" />
-              {{ loading ? '验证中...' : success ? '已通过' : isSettingPassword ? '设置密码' : '验证' }}
+              {{ loading ? '验证中...' : isSettingPassword ? '设置密码' : '验证' }}
             </button>
           </form>
 
