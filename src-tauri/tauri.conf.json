@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "Vault",
   "version": "0.1.0",
-  "identifier": "com.tauri-app.tauri-app",
+  "identifier": "com.vault.psw-manager",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,13 +12,21 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
+        "title": "Vault",
+        "label": "main",
         "width": 800,
-        "height": 600
+        "height": 640,
+        "minWidth": 600,
+        "minHeight": 500,
+        "center": true
       }
     ],
     "security": {
       "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true
     }
   },
   "bundle": {
