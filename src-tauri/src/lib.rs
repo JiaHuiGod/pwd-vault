@@ -39,6 +39,8 @@ fn get_config_dir(app: tauri::AppHandle) -> String {
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
+
+    std::process::exit(0);
 }
 
 // ─── Quick Add Window ────────────────────────────────────────────
@@ -47,6 +49,8 @@ fn quit_app(app: tauri::AppHandle) {
 fn create_quick_add_window(app: tauri::AppHandle) {
     let existing = app.get_webview_window("quick-add");
     if let Some(win) = existing {
+        // clear the form by navigating to the same URL again
+        let _ = win.eval("window.location.reload()");
         let _ = win.show();
         let _ = win.set_focus();
     } else {
@@ -71,10 +75,8 @@ fn create_quick_add_window(app: tauri::AppHandle) {
         let handle = _win.clone();
         _win.on_window_event(move |event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                // 1. 阻止默认的彻底销毁行为
-                api.prevent_close(); 
-                // 2. 将窗口隐藏，实现“伪关闭”
-                let _ = handle.hide(); 
+                api.prevent_close();
+                let _ = handle.hide();
             }
         });
     }
@@ -223,7 +225,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.emit("close-requested", ());
+                if window.label() == "main" {
+                    let _ = window.emit("close-requested", ());
+                } else {
+                    let _ = window.hide();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

@@ -44,9 +44,13 @@ function save() {
     notes: form.value.notes || undefined
   });
   saved.value = true;
+  form.value = { title: '', username: '', password: '', url: '', notes: '' };
   setTimeout(() => {
-    window.close();
-  }, 800);
+    saved.value = false;
+  }, 1500);
+
+  // If the admin page is open, force it to reload the password list
+  window.dispatchEvent(new CustomEvent('quick-add-saved'));
 }
 </script>
 

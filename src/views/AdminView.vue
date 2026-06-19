@@ -34,15 +34,20 @@ onMounted(() => {
     router.push('/')
     return
   }
-  // Passwords already loaded during login; no need to load again
   document.addEventListener('click', onActivity)
   document.addEventListener('keydown', onActivity)
+  window.addEventListener('quick-add-saved', onQuickAddSaved)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onActivity)
   document.removeEventListener('keydown', onActivity)
+  window.removeEventListener('quick-add-saved', onQuickAddSaved)
 })
+
+function onQuickAddSaved() {
+  pswStore.reloadIfLoggedIn()
+}
 
 function onActivity() {
   auth.resetIdleTimer()

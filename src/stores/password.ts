@@ -98,6 +98,12 @@ export const usePasswordStore = defineStore('passwords', () => {
     }
   }
 
+  /** Reload from vault using the cached admin password. */
+  async function reloadIfLoggedIn(): Promise<boolean> {
+    if (!_adminPassword.value) return false
+    return loadPasswords(_adminPassword.value)
+  }
+
   return {
     passwords,
     searchQuery,
@@ -107,5 +113,6 @@ export const usePasswordStore = defineStore('passwords', () => {
     addPassword,
     deletePassword,
     updatePassword,
+    reloadIfLoggedIn,
   }
 })

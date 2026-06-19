@@ -49,8 +49,7 @@ function onTrayChoice(pref: CloseActionPreference) {
 
 function executeAction(action: 'minimize' | 'quit') {
   if (action === 'minimize') {
-    const win = getCurrentWindow()
-    win.hide()
+    getCurrentWindow().hide()
   } else {
     invoke('quit_app')
   }
