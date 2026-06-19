@@ -50,13 +50,13 @@ fn create_quick_add_window(app: tauri::AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
     } else {
-        let win = tauri::WebviewWindowBuilder::new(
+        let _win = tauri::WebviewWindowBuilder::new(
             &app,
             "quick-add",
             tauri::WebviewUrl::App("index.html#/quick-add".into()),
         )
         .title("快速添加密码")
-        .inner_size(380.0, 340.0)
+        .inner_size(380.0, 420.0)
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
@@ -64,10 +64,17 @@ fn create_quick_add_window(app: tauri::AppHandle) {
         .build()
         .expect("Failed to create quick-add window");
 
-        let handle = win.clone();
-        let _ = win.on_window_event(move |event| {
-            if let WindowEvent::CloseRequested { .. } = event {
-                let _ = handle.hide();
+        // Do NOT listen on CloseRequested — let the window close naturally.
+        // The frontend's window.close() will destroy the webview and
+        // the window shell follows gracefully.
+        // 监听窗口事件：当用户/前端点击关闭时，不销毁，而是隐藏它，这样下次打开速度极快且不会白屏
+        let handle = _win.clone();
+        _win.on_window_event(move |event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // 1. 阻止默认的彻底销毁行为
+                api.prevent_close(); 
+                // 2. 将窗口隐藏，实现“伪关闭”
+                let _ = handle.hide(); 
             }
         });
     }
@@ -228,6 +235,13 @@ pub fn run() {
             get_config_dir,
             quit_app,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        // 🛠️ 核心修改点：将 .run 替换为 .build().run() 以拦截全局退出事件
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            // 当所有窗口都隐藏，系统尝试自动退出 App 时，在这里拦截它
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                api.prevent_exit(); // 阻止自动退出，让常驻后台和托盘正常工作
+            }
+        });
 }
