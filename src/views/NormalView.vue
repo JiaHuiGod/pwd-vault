@@ -19,6 +19,7 @@ const form = reactive({
   notes: '',
 })
 const saved = ref(false)
+const copyOk = ref(false)
 
 function generatePassword() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
@@ -61,6 +62,13 @@ function triggerVerify() {
 
 function onVerifyClose() {
   auth.showVerifyModal = false
+}
+
+function copyPassword() {
+  if (!form.password) return
+  navigator.clipboard.writeText(form.password)
+  copyOk.value = true
+  setTimeout(() => { copyOk.value = false }, 1200)
 }
 
 function saveQuickPassword() {
@@ -120,19 +128,20 @@ function saveQuickPassword() {
             <label class="label">标题 *</label>
             <input v-model="form.title" class="input" placeholder="例如: GitHub" />
           </div>
-          <div class="form-row">
-            <div class="field flex-1">
-              <label class="label">用户名/邮箱 *</label>
-              <input v-model="form.username" class="input" placeholder="用户名或邮箱" />
-            </div>
-            <div class="field flex-1">
-              <label class="label">密码 *</label>
-              <div class="password-input-wrap">
-                <input v-model="form.password" class="input" type="text" placeholder="密码" />
-                <button class="btn btn-ghost btn-sm gen-btn" @click="generatePassword" title="生成随机密码">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                </button>
-              </div>
+          <div class="field">
+            <label class="label">用户名/邮箱 *</label>
+            <input v-model="form.username" class="input" placeholder="用户名或邮箱" />
+          </div>
+          <div class="field">
+            <label class="label">密码 *</label>
+            <div class="password-input-wrap">
+              <input v-model="form.password" class="input" type="text" placeholder="密码" />
+              <button class="btn btn-ghost btn-sm gen-btn" @click="generatePassword" title="生成随机密码">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              </button>
+              <button class="btn btn-ghost btn-sm copy-btn" :disabled="!form.password" title="复制密码" @click="copyPassword">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              </button>
             </div>
           </div>
           <div class="field">
@@ -278,18 +287,9 @@ function saveQuickPassword() {
   gap: 12px;
 }
 
-.form-row {
-  display: flex;
-  gap: 12px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
-}
-
-.flex-1 {
-  flex: 1;
 }
 
 .password-input-wrap {
@@ -301,6 +301,20 @@ function saveQuickPassword() {
 }
 .gen-btn {
   white-space: nowrap;
+}
+.copy-btn {
+  white-space: nowrap;
+  padding: 6px 10px;
+  color: var(--text-muted);
+}
+.copy-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.copy-btn:not(:disabled):hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-color: transparent;
 }
 
 .btn-save {
