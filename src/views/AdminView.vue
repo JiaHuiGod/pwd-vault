@@ -427,7 +427,7 @@ async function saveEdit() {
 
 <style scoped>
 .admin-view {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -516,6 +516,7 @@ async function saveEdit() {
   max-width: 800px;
   width: 100%;
   margin: 0 auto;
+  overflow-y: auto;
 }
 
 .search-bar {

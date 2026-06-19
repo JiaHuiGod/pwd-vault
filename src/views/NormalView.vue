@@ -172,17 +172,16 @@ function saveQuickPassword() {
 
 <style scoped>
 .normal-view {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  background: var(--bg-primary);
 }
 
 .bg-grid {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background-image:
     linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
@@ -229,6 +228,8 @@ function saveQuickPassword() {
   width: 100%;
   max-width: 520px;
   padding: 24px;
+  max-height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
