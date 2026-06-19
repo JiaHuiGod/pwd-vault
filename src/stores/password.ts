@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
 import type { PasswordItem } from '../types'
+import * as vault from '../services/vault'
 
 const TEMP_STORAGE_KEY = 'psw_temp_passwords'
 
@@ -28,10 +28,10 @@ export const usePasswordStore = defineStore('passwords', () => {
     return list.slice().sort((a, b) => b.createdAt - a.createdAt)
   })
 
-  /** Load passwords from encrypted vault. Must be called after login. */
+  /** Load passwords from vault. Must be called after login. */
   async function loadPasswords(adminPassword: string): Promise<boolean> {
     try {
-      const raw = await invoke<string>('decrypt_load', { key: adminPassword })
+      const raw = await vault.load(adminPassword)
       _adminPassword.value = adminPassword
       passwords.value = JSON.parse(raw)
       return true
@@ -61,7 +61,7 @@ export const usePasswordStore = defineStore('passwords', () => {
       try {
         // Merge with existing vault data to add any entries not in current memory,
         // but remove any entries that were deleted from memory
-        const raw = await invoke<string>('decrypt_load', { key: _adminPassword.value })
+        const raw = await vault.load(_adminPassword.value)
         const existing: PasswordItem[] = JSON.parse(raw)
         const existingMap = new Map(existing.map((p) => [p.id, p]))
         // Remove entries that were explicitly deleted from memory
@@ -75,10 +75,7 @@ export const usePasswordStore = defineStore('passwords', () => {
           existingMap.set(p.id, p)
         }
         const merged = Array.from(existingMap.values())
-        await invoke('encrypt_save', {
-          data: JSON.stringify(merged),
-          key: _adminPassword.value,
-        })
+        await vault.save(JSON.stringify(merged), _adminPassword.value)
         passwords.value = merged
       } catch (e) {
         console.error('加密保存失败:', e)

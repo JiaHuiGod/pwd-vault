@@ -26,6 +26,18 @@ fn decrypt_load(app: tauri::AppHandle, key: String) -> Result<String, String> {
     crypto::decrypt(&raw, &key)
 }
 
+/// Dev-only: write raw JSON without encryption
+#[tauri::command]
+fn plain_save(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    store::write_vault(&app, &data)
+}
+
+/// Dev-only: read raw JSON without decryption
+#[tauri::command]
+fn plain_load(app: tauri::AppHandle) -> Result<String, String> {
+    store::read_vault(&app)
+}
+
 #[tauri::command]
 fn has_vault_file(app: tauri::AppHandle) -> bool {
     store::vault_exists(&app)
@@ -238,6 +250,8 @@ pub fn run() {
             set_global_shortcut,
             encrypt_save,
             decrypt_load,
+            plain_save,
+            plain_load,
             has_vault_file,
             get_config_dir,
             quit_app,

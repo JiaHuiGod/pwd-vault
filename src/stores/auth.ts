@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
 import { usePasswordStore } from './password'
+import * as vault from '../services/vault'
 
 const AUTH_SESSION_KEY = 'psw_auth_session'
 const IDLE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function checkHasPassword() {
     try {
-      hasPassword.value = await invoke<boolean>('has_vault_file')
+      hasPassword.value = await vault.exists()
     } catch {
       hasPassword.value = false
     }
@@ -63,7 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       data = JSON.stringify([])
     }
-    await invoke('encrypt_save', { data, key: password })
+    await vault.save(data, password)
     // Load vault
     await pswStore.loadPasswords(password)
     isLoggedIn.value = true
