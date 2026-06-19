@@ -175,7 +175,11 @@ body {
 }
 .quick-card {
   width: 100%;
-  padding: 20px 24px;
+  height: 100%;
+  padding: 0 24px 15px;
+  display: flex;
+  flex-direction: column;
+  /* justify-content: space-between; */
   -webkit-app-region: no-drag;
 }
 .header {
@@ -185,7 +189,7 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   color: #e8e8ed;
-  margin-bottom: 16px;
+  padding: 15px 0;
   -webkit-app-region: drag;
 }
 .header svg:first-child {
@@ -209,8 +213,10 @@ body {
 .body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  flex: 1;
+  /* justify-content: space-evenly; */
+  /* margin-bottom: 14px; */
 }
 .body .input {
   width: 100%;
