@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const emit = defineEmits<{
   close: []
 }>()
 
+const router = useRouter()
 const auth = useAuthStore()
 const password = ref('')
 const confirmPassword = ref('')
@@ -13,7 +15,7 @@ const error = ref('')
 const loading = ref(false)
 const success = ref(false)
 
-const isSettingPassword = auth.pendingAction === 'setPassword'
+const isSettingPassword = computed(() => auth.pendingAction === 'setPassword')
 
 watch(
   () => auth.showVerifyModal,
@@ -53,6 +55,7 @@ function handleSubmit() {
       setTimeout(() => {
         auth.setInitialPassword(password.value)
         loading.value = false
+        router.push('/admin')
       }, 600)
     } else {
       const ok = auth.login(password.value)
@@ -60,6 +63,7 @@ function handleSubmit() {
         success.value = true
         setTimeout(() => {
           loading.value = false
+          router.push('/admin')
         }, 400)
       } else {
         error.value = '密码错误'

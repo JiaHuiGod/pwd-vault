@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { usePasswordStore } from '../stores/password'
 import PasswordVerify from '../components/PasswordVerify.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
 const pswStore = usePasswordStore()
 
@@ -49,10 +47,6 @@ function onVerifyClose() {
   auth.showVerifyModal = false
 }
 
-function goToAdmin() {
-  router.push('/admin')
-}
-
 function saveQuickPassword() {
   if (!form.title || !form.password) return
   pswStore.addPassword({
@@ -78,7 +72,7 @@ function saveQuickPassword() {
     <div class="bg-orb bg-orb-2" />
 
     <!-- Secret trigger shield (top-right corner) -->
-    <div class="secret-trigger-area" @click="onLogoClick" title="点击5次解锁管理页面" />
+    <div class="secret-trigger-area" @click="onLogoClick" />
 
     <div class="content">
       <!-- Logo area -->
@@ -130,19 +124,10 @@ function saveQuickPassword() {
           </button>
         </div>
       </div>
-
-      <!-- Footer hint -->
-      <p class="footer-hint">
-        点击顶部图标
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        5 次进入管理
-      </p>
-    </div>
+      </div>
 
     <!-- Verify modal -->
-    <PasswordVerify @close="onVerifyClose" @after-login="goToAdmin" />
+    <PasswordVerify @close="onVerifyClose" />
   </div>
 </template>
 
@@ -289,22 +274,5 @@ function saveQuickPassword() {
   align-items: center;
   gap: 6px;
   color: var(--success);
-}
-
-.footer-hint {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  opacity: 0.4;
-  transition: opacity var(--transition-normal);
-}
-.footer-hint:hover {
-  opacity: 0.8;
 }
 </style>
