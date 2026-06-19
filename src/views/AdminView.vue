@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { listen } from '@tauri-apps/api/event'
 import { useAuthStore } from '../stores/auth'
 import { usePasswordStore } from '../stores/password'
 import type { PasswordItem } from '../types'
@@ -29,21 +30,23 @@ const deletingId = ref<string | null>(null)
 // Copy feedback
 const copiedField = ref<string | null>(null)
 
-onMounted(() => {
+onMounted(async () => {
   if (!auth.isLoggedIn) {
     router.push('/')
     return
   }
   document.addEventListener('click', onActivity)
   document.addEventListener('keydown', onActivity)
-  window.addEventListener('quick-add-saved', onQuickAddSaved)
+  unlistenQuickAdd = await listen('quick-add-saved', onQuickAddSaved)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onActivity)
   document.removeEventListener('keydown', onActivity)
-  window.removeEventListener('quick-add-saved', onQuickAddSaved)
+  unlistenQuickAdd?.()
 })
+
+let unlistenQuickAdd: (() => void) | null = null
 
 function onQuickAddSaved() {
   pswStore.reloadIfLoggedIn()

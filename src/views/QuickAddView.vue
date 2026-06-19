@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { usePasswordStore } from '../stores/password';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit } from '@tauri-apps/api/event';
 
 const pswStore = usePasswordStore();
 const form = ref({ title: '', username: '', password: '', url: '', notes: '' });
@@ -50,7 +51,7 @@ function save() {
   }, 1500);
 
   // If the admin page is open, force it to reload the password list
-  window.dispatchEvent(new CustomEvent('quick-add-saved'));
+  emit('quick-add-saved');
 }
 </script>
 

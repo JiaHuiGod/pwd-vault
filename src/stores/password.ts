@@ -34,6 +34,8 @@ export const usePasswordStore = defineStore('passwords', () => {
       const raw = await vault.load(adminPassword)
       _adminPassword.value = adminPassword
       passwords.value = JSON.parse(raw)
+      // Absorb any temp passwords left by QuickAdd while admin was closed
+      await mergeAndClearTemp()
       return true
     } catch {
       return false
@@ -54,6 +56,30 @@ export const usePasswordStore = defineStore('passwords', () => {
 
   function saveTempPasswords() {
     localStorage.setItem(TEMP_STORAGE_KEY, JSON.stringify(passwords.value))
+  }
+
+  /** Merge temp passwords into vault and clear temp storage. */
+  async function mergeAndClearTemp() {
+    if (!_adminPassword.value) return
+    let merged = false
+    try {
+      const raw = localStorage.getItem(TEMP_STORAGE_KEY)
+      if (raw) {
+        const tempItems: PasswordItem[] = JSON.parse(raw)
+        for (const item of tempItems) {
+          if (!passwords.value.some((p) => p.id === item.id)) {
+            passwords.value.push(item)
+            merged = true
+          }
+        }
+        localStorage.removeItem(TEMP_STORAGE_KEY)
+      }
+    } catch {
+      // ignore parse error
+    }
+    if (merged) {
+      await vault.save(JSON.stringify(passwords.value), _adminPassword.value)
+    }
   }
 
   async function _save() {
