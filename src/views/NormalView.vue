@@ -33,6 +33,7 @@ function generatePassword() {
 onMounted(() => {
   auth.checkHasPassword()
   pswStore.loadTempPasswords()
+  // Always use temp storage on the normal page — never switch to encrypted vault
 })
 
 // Secret entrance: click the shield icon 5 times rapidly

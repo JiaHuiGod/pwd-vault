@@ -56,10 +56,21 @@ export const usePasswordStore = defineStore('passwords', () => {
   async function _save() {
     if (_adminPassword.value) {
       try {
+        // Merge with existing vault data to avoid overwriting other changes
+        const raw = await invoke<string>('decrypt_load', { key: _adminPassword.value })
+        const existing: PasswordItem[] = JSON.parse(raw)
+        // Build a map by id from existing vault data
+        const existingMap = new Map(existing.map((p) => [p.id, p]))
+        // Update with current in-memory state
+        for (const p of passwords.value) {
+          existingMap.set(p.id, p)
+        }
+        const merged = Array.from(existingMap.values())
         await invoke('encrypt_save', {
-          data: JSON.stringify(passwords.value),
+          data: JSON.stringify(merged),
           key: _adminPassword.value,
         })
+        passwords.value = merged
       } catch (e) {
         console.error('加密保存失败:', e)
       }
