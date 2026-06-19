@@ -36,6 +36,11 @@ fn get_config_dir(app: tauri::AppHandle) -> String {
     store::config_dir_string(&app)
 }
 
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 // ─── Quick Add Window ────────────────────────────────────────────
 
 #[tauri::command]
@@ -216,6 +221,7 @@ pub fn run() {
             decrypt_load,
             has_vault_file,
             get_config_dir,
+            quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

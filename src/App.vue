@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import TrayDialog from './components/TrayDialog.vue'
@@ -11,7 +12,6 @@ let unlisten: (() => void) | null = null
 const CLOSE_PREF_KEY = 'psw_close_preference'
 
 onMounted(async () => {
-  // Listen for close-requested from Rust backend
   unlisten = await listen('close-requested', () => {
     const stored = localStorage.getItem(CLOSE_PREF_KEY)
     if (stored) {
@@ -41,12 +41,12 @@ function onTrayChoice(pref: CloseActionPreference) {
   executeAction(pref.action)
 }
 
-async function executeAction(action: 'minimize' | 'quit') {
-  const win = getCurrentWindow()
+function executeAction(action: 'minimize' | 'quit') {
   if (action === 'minimize') {
-    await win.hide()
+    const win = getCurrentWindow()
+    win.hide()
   } else {
-    await win.close()
+    invoke('quit_app')
   }
 }
 </script>
