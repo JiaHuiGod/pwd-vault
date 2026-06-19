@@ -13,6 +13,8 @@ const password = ref('')
 const confirmPassword = ref('')
 const error = ref('')
 const loading = ref(false)
+const showPwd = ref(false)
+const showConfirmPwd = ref(false)
 
 const isSettingPassword = computed(() => auth.pendingAction === 'setPassword')
 
@@ -88,28 +90,44 @@ async function handleSubmit() {
           </div>
 
           <form class="modal-body" @submit.prevent="handleSubmit">
-            <div class="field">
+            <div class="field pwd-field">
               <label class="label">密码</label>
-              <input
-                v-model="password"
-                class="input"
-                type="password"
-                placeholder="输入密码"
-                autofocus
-              />
+              <div class="pwd-input-wrap">
+                <input
+                  v-model="password"
+                  class="input"
+                  :type="showPwd ? 'text' : 'password'"
+                  placeholder="输入密码"
+                  autofocus
+                />
+                <button class="pwd-toggle" type="button" tabindex="-1" @click="showPwd = !showPwd" :title="showPwd ? '隐藏密码' : '显示密码'">
+                  <svg v-if="!showPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="22" y2="22" /><path d="M10.41 10.41a2 2 0 0 0 2.83 2.83" /><path d="M17.82 17.82A9.95 9.95 0 0 1 12 19c-7 0-11-7-11-7a19.28 19.28 0 0 1 4.18-5.82" /><path d="M8.53 4.08A10 10 0 0 1 12 3c7 0 11 7 11 7a18.15 18.15 0 0 1-4.16 5.73" /></svg>
+                </button>
+              </div>
             </div>
 
-            <div v-if="isSettingPassword" class="field">
+            <div v-if="isSettingPassword" class="field pwd-field">
               <label class="label">确认密码</label>
-              <input
-                v-model="confirmPassword"
-                class="input"
-                type="password"
-                placeholder="再次输入密码"
-              />
+              <div class="pwd-input-wrap">
+                <input
+                  v-model="confirmPassword"
+                  class="input"
+                  :type="showConfirmPwd ? 'text' : 'password'"
+                  placeholder="再次输入密码"
+                />
+                <button class="pwd-toggle" type="button" tabindex="-1" @click="showConfirmPwd = !showConfirmPwd" :title="showConfirmPwd ? '隐藏密码' : '显示密码'">
+                  <svg v-if="!showConfirmPwd" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="22" y2="22" /><path d="M10.41 10.41a2 2 0 0 0 2.83 2.83" /><path d="M17.82 17.82A9.95 9.95 0 0 1 12 19c-7 0-11-7-11-7a19.28 19.28 0 0 1 4.18-5.82" /><path d="M8.53 4.08A10 10 0 0 1 12 3c7 0 11 7 11 7a18.15 18.15 0 0 1-4.16 5.73" /></svg>
+                </button>
+              </div>
             </div>
 
             <!-- no success banner, go immediately -->
+
+            <Transition name="fade">
+              <p v-if="error" class="error-msg">{{ error }}</p>
+            </Transition>
 
             <button type="submit" class="btn btn-primary btn-full" :disabled="loading">
               <span v-if="loading" class="spinner" />
@@ -194,6 +212,40 @@ async function handleSubmit() {
 .field {
   display: flex;
   flex-direction: column;
+}
+
+.pwd-field {
+  position: relative;
+}
+
+.pwd-input-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.pwd-input-wrap .input {
+  padding-right: 40px;
+}
+
+.pwd-toggle {
+  position: absolute;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+.pwd-toggle:hover {
+  color: var(--text-secondary);
+  background: var(--bg-glass-hover);
 }
 
 .btn-full {
