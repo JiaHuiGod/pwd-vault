@@ -7,12 +7,13 @@ import TrayDialog from './components/TrayDialog.vue'
 import type { CloseActionPreference } from './types'
 
 const showTrayDialog = ref(false)
-let unlisten: (() => void) | null = null
+let unlistenClose: (() => void) | null = null
+let unlistenReset: (() => void) | null = null
 
 const CLOSE_PREF_KEY = 'psw_close_preference'
 
 onMounted(async () => {
-  unlisten = await listen('close-requested', () => {
+  unlistenClose = await listen('close-requested', () => {
     const stored = localStorage.getItem(CLOSE_PREF_KEY)
     if (stored) {
       try {
@@ -27,10 +28,15 @@ onMounted(async () => {
     }
     showTrayDialog.value = true
   })
+
+  unlistenReset = await listen('reset-close-preference', () => {
+    localStorage.removeItem(CLOSE_PREF_KEY)
+  })
 })
 
 onUnmounted(() => {
-  unlisten?.()
+  unlistenClose?.()
+  unlistenReset?.()
 })
 
 function onTrayChoice(pref: CloseActionPreference) {

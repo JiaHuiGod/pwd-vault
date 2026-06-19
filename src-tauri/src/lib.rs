@@ -183,8 +183,10 @@ pub fn run() {
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quick_add =
                 MenuItem::with_id(app, "quick_add", "快速添加密码", true, None::<&str>)?;
+            let reset_pref =
+                MenuItem::with_id(app, "reset_pref", "重置关闭记忆", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &quick_add, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &quick_add, &reset_pref, &quit])?;
 
             TrayIconBuilder::new()
                 .tooltip("Vault 密码管理器")
@@ -198,6 +200,9 @@ pub fn run() {
                     }
                     "quick_add" => {
                         create_quick_add_window(app.clone());
+                    }
+                    "reset_pref" => {
+                        let _ = app.emit("reset-close-preference", ());
                     }
                     "quit" => {
                         app.exit(0);
