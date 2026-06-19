@@ -16,13 +16,16 @@ export const usePasswordStore = defineStore('passwords', () => {
 
   const filteredPasswords = computed(() => {
     const q = searchQuery.value.toLowerCase().trim()
-    if (!q) return passwords.value
-    return passwords.value.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.username.toLowerCase().includes(q) ||
-        p.url?.toLowerCase().includes(q),
-    )
+    let list = passwords.value
+    if (q) {
+      list = list.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.username.toLowerCase().includes(q) ||
+          p.url?.toLowerCase().includes(q),
+      )
+    }
+    return list.slice().sort((a, b) => b.createdAt - a.createdAt)
   })
 
   /** Load passwords from encrypted vault. Must be called after login. */
