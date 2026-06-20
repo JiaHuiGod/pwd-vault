@@ -213,6 +213,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show, &quick_add, &reset_pref, &quit])?;
 
             TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Vault 密码管理器")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
