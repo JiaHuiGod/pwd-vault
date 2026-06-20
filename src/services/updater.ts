@@ -17,9 +17,8 @@ export async function checkForUpdate(silent = true): Promise<void> {
       return
     }
 
-    const proceed = await confirmTip(
-      '发现新版本',
-      `v${update.version} 可用，是否立即下载更新？`,
+    const proceed = confirm(
+      `发现新版本 v${update.version}，是否立即下载更新？`,
     )
     if (!proceed) return
 
@@ -29,21 +28,20 @@ export async function checkForUpdate(silent = true): Promise<void> {
       }
     })
 
-    const restart = await confirmTip('更新完成', '已下载并安装更新，是否重启应用？')
+    const restart = confirm('已下载并安装更新，是否重启应用？')
     if (restart) {
       await relaunch()
     }
   } catch (e) {
     console.error('检查更新失败:', e)
     if (!silent) {
-      alertTip('检查更新失败', '无法连接到更新服务器，请稍后再试')
+      // Provide more helpful message based on the error
+      const msg = e instanceof TypeError && e.message.includes('fetch')
+        ? '网络请求失败，请检查网络连接后重试'
+        : '无法连接到更新服务器，请稍后再试'
+      alertTip('检查更新失败', msg)
     }
   }
-}
-
-/** Simple confirm dialog using window.confirm (no extra deps needed) */
-async function confirmTip(title: string, message: string): Promise<boolean> {
-  return window.confirm(`${title}\n\n${message}`)
 }
 
 /** Simple alert dialog */

@@ -1,7 +1,9 @@
 name: Release
+
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -9,29 +11,41 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup pnpm
+        run: npm install -g pnpm@9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      - run: npm install -g pnpm@9
-      - run: pnpm install
-
-      # 🛠️ 核心修复点：升级到 v1 版本，并加入预防死锁的 args 参数
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build & Release
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'Vault v__VERSION__'
-          releaseBody: '请查看更新日志了解本次变更'
-          releaseDraft: true
+          tagName: ${{ github.ref_name }}
+          releaseName: Vault ${{ github.ref_name }}
+          releaseBody: |
+            ## 更新内容
+
+            请查看提交记录了解本次更新内容。
+
+          releaseDraft: false
           prerelease: false
+          args: --no-bundle-tests
