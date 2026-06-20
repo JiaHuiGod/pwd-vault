@@ -48,4 +48,3 @@ jobs:
 
           releaseDraft: false
           prerelease: false
-          args: --no-bundle-tests
