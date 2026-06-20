@@ -20,7 +20,8 @@ jobs:
       - run: npm install -g pnpm@9
       - run: pnpm install
 
-      - uses: tauri-apps/tauri-action@v0
+      # 🛠️ 核心修复点：升级到 v1 版本，并加入预防死锁的 args 参数
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -31,3 +32,5 @@ jobs:
           releaseBody: '请查看更新日志了解本次变更'
           releaseDraft: true
           prerelease: false
+          # 💡 关键参数：强制 Tauri 编译器只做纯粹的打包编译，绝对不要在后台静默启动 exe 做运行测试
+          args: --no-bundle-tests
