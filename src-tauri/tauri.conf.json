@@ -28,7 +28,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://github.com/JiaHuiGod/pwd-vault/releases/latest/download/latest.json"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0ODI1QTdBOEJDODREMTUKUldRVlRjaUxlbHFDSkxqU0JGOFNhaEs2b1FQOG1GUjhZbk1vd0NUQ2dUTHVJUm5wc2VGSE1CbEIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ0OEQyN0ZFNTg2NTgzMDUKUldRRmcyVlkvaWVOUkYzd29VOE9YbFJRbWI1NENUd2FtVEVsdWh3WDFxQkhORXJWMkJKbWh5K00K"
     }
   },
   "bundle": {
