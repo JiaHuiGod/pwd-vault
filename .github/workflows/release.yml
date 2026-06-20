@@ -1,36 +1,90 @@
+# name: Release
+# on:
+#   push:
+#     tags: ['v*']
+
+# jobs:
+#   release:
+#     runs-on: windows-latest
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - uses: actions/setup-node@v4
+#         with:
+#           node-version: '22'
+
+#       - uses: Swatinem/rust-cache@v2
+#         with:
+#           workspaces: src-tauri
+
+#       - run: npm install -g pnpm@9
+#       - run: pnpm install
+
+#       # 🛠️ 核心修复点：升级到 v1 版本，并加入预防死锁的 args 参数
+#       - uses: tauri-apps/tauri-action@v0
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+#           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+#         with:
+#           tagName: v__VERSION__
+#           releaseName: 'Vault v__VERSION__'
+#           releaseBody: '请查看更新日志了解本次变更'
+#           releaseDraft: true
+#           prerelease: false
+#           # 💡 关键参数：强制 Tauri 编译器只做纯粹的打包编译，绝对不要在后台静默启动 exe 做运行测试
+#           args: --no-bundle-tests
+
 name: Release
+
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*'
 
 jobs:
   release:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      - run: npm install -g pnpm@9
-      - run: pnpm install
+      - name: Install pnpm
+        run: npm install -g pnpm@9
 
-      # 🛠️ 核心修复点：升级到 v1 版本，并加入预防死锁的 args 参数
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Show Environment
+        run: |
+          rustc -V
+          cargo -V
+          node -v
+          pnpm -v
+
+      - name: Show Tauri Info
+        run: pnpm tauri info
+
+      - name: Build Tauri
+        run: pnpm tauri build --verbose --no-bundle-tests
+
+      - name: Upload Bundle
+        uses: actions/upload-artifact@v4
         with:
-          tagName: v__VERSION__
-          releaseName: 'Vault v__VERSION__'
-          releaseBody: '请查看更新日志了解本次变更'
-          releaseDraft: true
-          prerelease: false
-          # 💡 关键参数：强制 Tauri 编译器只做纯粹的打包编译，绝对不要在后台静默启动 exe 做运行测试
-          args: --no-bundle-tests
+          name: tauri-build
+          path: |
+            src-tauri/target/release/bundle/**
