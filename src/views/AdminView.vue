@@ -27,6 +27,99 @@ const editing = ref(false)
 // Delete confirm
 const deletingId = ref<string | null>(null)
 
+// Import CSV
+const importInput = ref<HTMLInputElement | null>(null)
+const importing = ref(false)
+const importResult = ref<string | null>(null)
+
+function triggerImport() {
+  importInput.value?.click()
+}
+
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      inQuotes = !inQuotes
+    } else if ((ch === ',' || ch === '\t') && !inQuotes) {
+      fields.push(current.trim())
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  fields.push(current.trim())
+  return fields
+}
+
+async function handleImportFile(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  importing.value = true
+  importResult.value = null
+
+  try {
+    const text = await file.text()
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
+    if (lines.length < 2) {
+      importResult.value = '文件为空或只有表头，无需导入'
+      return
+    }
+
+    // Parse header to find column indices
+    const header = parseCSVLine(lines[0])
+    const colMap: Record<string, number> = {}
+    header.forEach((h, i) => {
+      const key = h.toLowerCase().trim()
+      if (['name', 'url', 'username', 'password', 'note'].includes(key)) {
+        colMap[key] = i
+      }
+    })
+
+    if (colMap.name === undefined || colMap.username === undefined || colMap.password === undefined) {
+      importResult.value = 'CSV 缺少必要列：name、username、password'
+      return
+    }
+
+    let success = 0
+    let skipped = 0
+
+    for (let i = 1; i < lines.length; i++) {
+      const fields = parseCSVLine(lines[i])
+      const title = fields[colMap.name]?.trim()
+      const username = fields[colMap.username]?.trim()
+      const password = fields[colMap.password]?.trim()
+      if (!title || !username || !password) {
+        skipped++
+        continue
+      }
+      const url = colMap.url !== undefined ? fields[colMap.url]?.trim() || '' : ''
+      const note = colMap.note !== undefined ? fields[colMap.note]?.trim() || '' : ''
+
+      await pswStore.addPassword({
+        title,
+        username,
+        password,
+        url: url || undefined,
+        notes: note || undefined,
+      })
+      success++
+    }
+
+    importResult.value = `导入完成：成功 ${success} 条${skipped ? `，跳过 ${skipped} 条` : ''}`
+  } catch (err) {
+    importResult.value = `导入失败：${err instanceof Error ? err.message : '未知错误'}`
+  } finally {
+    importing.value = false
+    target.value = '' // allow re-selecting the same file
+  }
+}
+
 // Copy feedback
 const copiedField = ref<string | null>(null)
 
@@ -179,6 +272,11 @@ async function saveEdit() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           {{ showAddForm ? '取消' : '新增' }}
         </button>
+        <button class="btn btn-ghost btn-sm" :disabled="importing" @click="triggerImport">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+          导入
+        </button>
+        <input ref="importInput" type="file" accept=".csv" style="display:none" @change="handleImportFile" />
         <button class="btn btn-ghost btn-sm" @click="handleLogout">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
           退出
@@ -234,6 +332,14 @@ async function saveEdit() {
               <span v-else>添加密码</span>
             </Transition>
           </button>
+        </div>
+      </Transition>
+
+      <!-- Import result toast -->
+      <Transition name="fade">
+        <div v-if="importResult" class="import-toast" @click="importResult = null">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+          {{ importResult }}
         </div>
       </Transition>
 
@@ -708,6 +814,20 @@ async function saveEdit() {
   gap: 12px;
   text-align: center;
   font-size: 0.9rem;
+}
+
+.import-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--accent);
+  cursor: pointer;
 }
 
 /* Delete dialog */
