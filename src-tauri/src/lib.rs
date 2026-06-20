@@ -273,7 +273,7 @@ pub fn run() {
                 if env::var("GITHUB_ACTIONS").is_ok() {
                     return;
                 }
-                // api.prevent_exit(); // 阻止自动退出，让常驻后台和托盘正常工作
+                api.prevent_exit(); // 阻止自动退出，让常驻后台和托盘正常工作
             }
         });
 }
