@@ -592,6 +592,7 @@ async function saveEdit() {
 
 .list-container {
   flex: 1;
+  overflow-x: hidden;
 }
 
 .list {
