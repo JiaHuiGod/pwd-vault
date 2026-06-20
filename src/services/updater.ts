@@ -1,5 +1,6 @@
-import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { getVersion } from '@tauri-apps/api/app';
 
 /**
  * Check for updates. When `silent` is true, only show a notification when
@@ -12,7 +13,8 @@ export async function checkForUpdate(silent = true): Promise<void> {
     const update = await check({ timeout: 10000 })
     if (!update) {
       if (!silent) {
-        alertTip('已是最新版', `当前版本已是最新 (v${import.meta.env.APP_VERSION || '0.1.0'})`)
+        const version = await getVersion();
+        alertTip('已是最新版', `当前版本已是最新 (v${version || '0.1.0'})`);
       }
       return
     }
