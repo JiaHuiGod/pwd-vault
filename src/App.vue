@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import TrayDialog from './components/TrayDialog.vue'
 import type { CloseActionPreference } from './types'
+import { checkForUpdate } from './services/updater'
 
 const showTrayDialog = ref(false)
 let unlistenClose: (() => void) | null = null
@@ -32,6 +33,9 @@ onMounted(async () => {
   unlistenReset = await listen('reset-close-preference', () => {
     localStorage.removeItem(CLOSE_PREF_KEY)
   })
+
+  // Silently check for updates on startup
+  checkForUpdate(true)
 })
 
 onUnmounted(() => {

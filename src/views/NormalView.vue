@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { useAuthStore } from '../stores/auth';
-import { usePasswordStore } from '../stores/password';
-import PasswordVerify from '../components/PasswordVerify.vue';
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
+import { useAuthStore } from '../stores/auth'
+import { usePasswordStore } from '../stores/password'
+import PasswordVerify from '../components/PasswordVerify.vue'
+import { checkForUpdate } from '../services/updater'
 
 const auth = useAuthStore();
 const pswStore = usePasswordStore();
@@ -235,6 +236,9 @@ function saveQuickPassword() {
             />
           </svg>
           <span v-if="currentShortcut" class="shortcut-badge">{{ currentShortcut }}</span>
+        </button>
+        <button class="shortcut-btn" title="检查更新" @click="checkForUpdate(false)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
         </button>
       </div>
 
