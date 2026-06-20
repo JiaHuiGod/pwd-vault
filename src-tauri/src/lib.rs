@@ -9,6 +9,7 @@ use tauri::{
     WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
+use std::env;
 
 static CURRENT_SHORTCUT: Mutex<Option<String>> = Mutex::new(None);
 
@@ -239,6 +240,10 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                // 核心修复：如果是 GitHub Actions 在打包，直接放行，不拦截！
+                if env::var("GITHUB_ACTIONS").is_ok() {
+                    return; 
+                }
                 api.prevent_close();
                 if window.label() == "main" {
                     let _ = window.emit("close-requested", ());
@@ -264,6 +269,10 @@ pub fn run() {
         .run(|_app_handle, event| {
             // 当所有窗口都隐藏，系统尝试自动退出 App 时，在这里拦截它
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                // 核心修复：如果是 GitHub Actions 在打包，允许它直接退出
+                if env::var("GITHUB_ACTIONS").is_ok() {
+                    return;
+                }
                 api.prevent_exit(); // 阻止自动退出，让常驻后台和托盘正常工作
             }
         });
