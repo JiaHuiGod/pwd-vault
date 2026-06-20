@@ -1,34 +1,34 @@
 name: Release
-
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
 
 jobs:
   release:
     runs-on: windows-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-
-      - uses: dtolnay/rust-toolchain@stable
+          node-version: '22'
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
       - run: npm install -g pnpm@9
-
       - run: pnpm install
 
-      - name: Build Frontend
-        run: pnpm build
-
-      - name: Build Rust
-        working-directory: src-tauri
-        run: cargo build --release -vv
+      # 🛠️ 核心修复点：升级到 v1 版本，并加入预防死锁的 args 参数
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Vault v__VERSION__'
+          releaseBody: '请查看更新日志了解本次变更'
+          releaseDraft: true
+          prerelease: false
