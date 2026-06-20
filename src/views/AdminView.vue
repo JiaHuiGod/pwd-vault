@@ -170,7 +170,7 @@ async function saveEdit() {
           </svg>
         </div>
         <div>
-          <h1 class="header-title">Vault 管理</h1>
+          <h1 class="header-title">Password Vault 管理</h1>
           <p class="header-sub">密码管理中心</p>
         </div>
       </div>

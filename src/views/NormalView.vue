@@ -218,7 +218,7 @@ function saveQuickPassword() {
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
-        <h1 class="gradient-text">Vault</h1>
+        <h1 class="gradient-text">Password Vault</h1>
         <button class="shortcut-btn" title="设置全局快捷键" @click="openShortcutModal">
           <svg
             width="16"

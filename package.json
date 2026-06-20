@@ -1,5 +1,5 @@
 {
-  "name": "psw-manager",
+  "name": "password-vault",
   "private": true,
   "version": "0.1.2",
   "type": "module",
