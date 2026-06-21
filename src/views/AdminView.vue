@@ -1,249 +1,293 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { listen } from '@tauri-apps/api/event'
-import { useAuthStore } from '../stores/auth'
-import { usePasswordStore } from '../stores/password'
-import type { PasswordItem } from '../types'
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { listen } from '@tauri-apps/api/event';
+import { useAuthStore } from '../stores/auth';
+import { usePasswordStore } from '../stores/password';
+import type { PasswordItem } from '../types';
 
-const router = useRouter()
-const auth = useAuthStore()
-const pswStore = usePasswordStore()
+const router = useRouter();
+const auth = useAuthStore();
+const pswStore = usePasswordStore();
 
 // Form state
-const form = ref({ title: '', username: '', password: '', url: '', notes: '' })
-const showAddForm = ref(false)
-const adding = ref(false)
-const added = ref(false)
+const form = ref({ title: '', username: '', password: '', url: '', notes: '' });
+const showAddForm = ref(false);
+const adding = ref(false);
+const added = ref(false);
 
 // Detail modal
-const detailItem = ref<PasswordItem | null>(null)
+const detailItem = ref<PasswordItem | null>(null);
 
 // Edit modal
-const editItem = ref<PasswordItem | null>(null)
-const editForm = ref({ title: '', username: '', password: '', url: '', notes: '' })
-const editing = ref(false)
+const editItem = ref<PasswordItem | null>(null);
+const editForm = ref({ title: '', username: '', password: '', url: '', notes: '' });
+const editing = ref(false);
 
 // Delete confirm
-const deletingId = ref<string | null>(null)
+const deletingId = ref<string | null>(null);
 
 // Import CSV
-const importInput = ref<HTMLInputElement | null>(null)
-const importing = ref(false)
-const importResult = ref<string | null>(null)
+const importInput = ref<HTMLInputElement | null>(null);
+const importing = ref(false);
+const importResult = ref<string | null>(null);
+const importPreview = ref<{
+  fileName: string;
+  success: number;
+  skipped: number;
+  rows: { title: string; username: string; password: string; url: string; notes: string }[];
+} | null>(null);
+
+type ImportRow = NonNullable<typeof importPreview.value>['rows'][0]
 
 function triggerImport() {
-  importInput.value?.click()
+  importInput.value?.click();
 }
 
 function parseCSVLine(line: string): string[] {
-  const fields: string[] = []
-  let current = ''
-  let inQuotes = false
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
+    const ch = line[i];
     if (ch === '"') {
-      inQuotes = !inQuotes
+      inQuotes = !inQuotes;
     } else if ((ch === ',' || ch === '\t') && !inQuotes) {
-      fields.push(current.trim())
-      current = ''
+      fields.push(current.trim());
+      current = '';
     } else {
-      current += ch
+      current += ch;
     }
   }
-  fields.push(current.trim())
-  return fields
+  fields.push(current.trim());
+  return fields;
 }
 
 async function handleImportFile(e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
 
-  importing.value = true
-  importResult.value = null
+  importResult.value = null;
+  target.value = '';
 
   try {
-    const text = await file.text()
-    const lines = text.split(/\r?\n/).filter(l => l.trim())
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) {
-      importResult.value = '文件为空或只有表头，无需导入'
-      return
+      importResult.value = '文件为空或只有表头，无需导入';
+      return;
     }
 
-    // Parse header to find column indices
-    const header = parseCSVLine(lines[0])
-    const colMap: Record<string, number> = {}
+    const header = parseCSVLine(lines[0]);
+    const colMap: Record<string, number> = {};
     header.forEach((h, i) => {
-      const key = h.toLowerCase().trim()
-      if (['name', 'url', 'username', 'password', 'note'].includes(key)) {
-        colMap[key] = i
+      const key = h.toLowerCase().trim();
+      if (['name', 'title', 'url', 'username', 'password', 'note', 'notes'].includes(key)) {
+        colMap[key] = i;
       }
-    })
+    });
 
-    if (colMap.name === undefined || colMap.username === undefined || colMap.password === undefined) {
-      importResult.value = 'CSV 缺少必要列：name、username、password'
-      return
+    if (colMap.name === undefined && colMap.title === undefined) {
+      importResult.value = 'CSV 缺少必要列：name/title';
+      return;
+    }
+    if (colMap.username === undefined) {
+      importResult.value = 'CSV 缺少必要列：username';
+      return;
+    }
+    if (colMap.password === undefined) {
+      importResult.value = 'CSV 缺少必要列：password';
+      return;
     }
 
-    let success = 0
-    let skipped = 0
+    const nameKey = colMap.name ?? colMap.title!;
+    const success: ImportRow[] = [];
+    let skipped = 0;
 
     for (let i = 1; i < lines.length; i++) {
-      const fields = parseCSVLine(lines[i])
-      const title = fields[colMap.name]?.trim()
-      const username = fields[colMap.username]?.trim()
-      const password = fields[colMap.password]?.trim()
+      const fields = parseCSVLine(lines[i]);
+      const title = fields[nameKey]?.trim();
+      const username = fields[colMap.username]?.trim();
+      const password = fields[colMap.password]?.trim();
       if (!title || !username || !password) {
-        skipped++
-        continue
+        skipped++;
+        continue;
       }
-      const url = colMap.url !== undefined ? fields[colMap.url]?.trim() || '' : ''
-      const note = colMap.note !== undefined ? fields[colMap.note]?.trim() || '' : ''
-
-      await pswStore.addPassword({
-        title,
-        username,
-        password,
-        url: url || undefined,
-        notes: note || undefined,
-      })
-      success++
+      const url = colMap.url !== undefined ? fields[colMap.url]?.trim() || '' : '';
+      const noteKey = colMap.notes ?? colMap.note;
+      const note = noteKey !== undefined ? fields[noteKey]?.trim() || '' : '';
+      success.push({ title, username, password, url, notes: note });
     }
 
-    importResult.value = `导入完成：成功 ${success} 条${skipped ? `，跳过 ${skipped} 条` : ''}`
+    importPreview.value = {
+      fileName: file.name,
+      success: success.length,
+      skipped,
+      rows: success
+    };
   } catch (err) {
-    importResult.value = `导入失败：${err instanceof Error ? err.message : '未知错误'}`
-  } finally {
-    importing.value = false
-    target.value = '' // allow re-selecting the same file
+    importResult.value = `解析失败：${err instanceof Error ? err.message : '未知错误'}`;
   }
+}
+
+async function confirmImport() {
+  if (!importPreview.value) return;
+  importing.value = true;
+  importResult.value = null;
+  try {
+    for (const item of importPreview.value.rows) {
+      await pswStore.addPassword({
+        title: item.title,
+        username: item.username,
+        password: item.password,
+        url: item.url || undefined,
+        notes: item.notes || undefined
+      });
+    }
+    importResult.value = `导入完成：成功 ${importPreview.value.success} 条${importPreview.value.skipped ? `，跳过 ${importPreview.value.skipped} 条` : ''}`;
+  } catch (err) {
+    importResult.value = `导入失败：${err instanceof Error ? err.message : '未知错误'}`;
+  } finally {
+    importing.value = false;
+    importPreview.value = null;
+  }
+}
+
+function cancelImport() {
+  importPreview.value = null;
 }
 
 // Copy feedback
-const copiedField = ref<string | null>(null)
+const copiedField = ref<string | null>(null);
 
 onMounted(async () => {
   if (!auth.isLoggedIn) {
-    router.push('/')
-    return
+    router.push('/');
+    return;
   }
-  document.addEventListener('click', onActivity)
-  document.addEventListener('keydown', onActivity)
-  unlistenQuickAdd = await listen('quick-add-saved', onQuickAddSaved)
-})
+  document.addEventListener('click', onActivity);
+  document.addEventListener('keydown', onActivity);
+  unlistenQuickAdd = await listen('quick-add-saved', onQuickAddSaved);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', onActivity)
-  document.removeEventListener('keydown', onActivity)
-  unlistenQuickAdd?.()
-})
+  document.removeEventListener('click', onActivity);
+  document.removeEventListener('keydown', onActivity);
+  unlistenQuickAdd?.();
+});
 
-let unlistenQuickAdd: (() => void) | null = null
+let unlistenQuickAdd: (() => void) | null = null;
 
 function onQuickAddSaved() {
-  pswStore.reloadIfLoggedIn()
+  pswStore.reloadIfLoggedIn();
 }
 
 function onActivity() {
-  auth.resetIdleTimer()
+  auth.resetIdleTimer();
 }
 
 function toggleForm() {
-  showAddForm.value = !showAddForm.value
+  showAddForm.value = !showAddForm.value;
   if (!showAddForm.value) {
-    form.value = { title: '', username: '', password: '', url: '', notes: '' }
+    form.value = { title: '', username: '', password: '', url: '', notes: '' };
   }
 }
 
 function addPassword() {
-  if (!form.value.title || !form.value.password || !form.value.username) return
-  adding.value = true
+  if (!form.value.title || !form.value.password || !form.value.username) return;
+  adding.value = true;
   setTimeout(() => {
     pswStore.addPassword({
       title: form.value.title,
       username: form.value.username,
       password: form.value.password,
       url: form.value.url || undefined,
-      notes: form.value.notes || undefined,
-    })
-    added.value = true
-    form.value = { title: '', username: '', password: '', url: '', notes: '' }
+      notes: form.value.notes || undefined
+    });
+    added.value = true;
+    form.value = { title: '', username: '', password: '', url: '', notes: '' };
     setTimeout(() => {
-      added.value = false
-      showAddForm.value = false
-      adding.value = false
-    }, 800)
-  }, 200)
+      added.value = false;
+      showAddForm.value = false;
+      adding.value = false;
+    }, 800);
+  }, 200);
 }
 
 function confirmDelete(id: string) {
-  deletingId.value = id
+  deletingId.value = id;
 }
 
 function doDelete() {
   if (deletingId.value) {
-    pswStore.deletePassword(deletingId.value)
-    deletingId.value = null
+    pswStore.deletePassword(deletingId.value);
+    deletingId.value = null;
   }
 }
 
 function cancelDelete() {
-  deletingId.value = null
+  deletingId.value = null;
 }
 
-let copyTimer: ReturnType<typeof setTimeout> | null = null
+let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
 function copyToClipboard(text: string, field: string) {
-  navigator.clipboard.writeText(text)
-  if (copyTimer) clearTimeout(copyTimer)
-  copiedField.value = field
+  navigator.clipboard.writeText(text);
+  if (copyTimer) clearTimeout(copyTimer);
+  copiedField.value = field;
   copyTimer = setTimeout(() => {
-    copiedField.value = null
-    copyTimer = null
-  }, 1200)
+    copiedField.value = null;
+    copyTimer = null;
+  }, 1200);
 }
 
 function generatePassword() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-  let pwd = ''
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let pwd = '';
   for (let i = 0; i < 16; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  form.value.password = pwd
-  return pwd
+  form.value.password = pwd;
+  return pwd;
 }
 
 function handleLogout() {
-  auth.logout()
-  router.push('/')
+  auth.logout();
+  router.push('/');
 }
 
 function maskPassword(pwd: string): string {
-  return '•'.repeat(Math.min(pwd.length, 12))
+  return '•'.repeat(Math.min(pwd.length, 12));
 }
 
 function startEdit(item: PasswordItem) {
-  editItem.value = item
+  editItem.value = item;
   editForm.value = {
     title: item.title,
     username: item.username,
     password: item.password,
     url: item.url || '',
-    notes: item.notes || '',
-  }
+    notes: item.notes || ''
+  };
 }
 
 function cancelEdit() {
-  editItem.value = null
+  editItem.value = null;
 }
 
 async function saveEdit() {
-  if (!editItem.value || !editForm.value.title || !editForm.value.password || !editForm.value.username) return
-  editing.value = true
-  await pswStore.updatePassword(editItem.value.id, editForm.value)
-  editing.value = false
-  editItem.value = null
+  if (
+    !editItem.value ||
+    !editForm.value.title ||
+    !editForm.value.password ||
+    !editForm.value.username
+  )
+    return;
+  editing.value = true;
+  await pswStore.updatePassword(editItem.value.id, editForm.value);
+  editing.value = false;
+  editItem.value = null;
 }
 </script>
 
@@ -258,8 +302,18 @@ async function saveEdit() {
     <header class="admin-header glass-card">
       <div class="header-left">
         <div class="header-logo" @click="handleLogout" title="退出管理">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </div>
         <div>
@@ -269,16 +323,63 @@ async function saveEdit() {
       </div>
       <div class="header-right">
         <button class="btn btn-primary btn-sm" @click="toggleForm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
           {{ showAddForm ? '取消' : '新增' }}
         </button>
-        <button class="btn btn-ghost btn-sm" :disabled="importing" @click="triggerImport">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-          导入
+        <button
+          class="btn btn-ghost btn-sm"
+          :disabled="importing"
+          @click="triggerImport"
+          title="仅支持 .csv 文件"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          导入密码（CSV文件）
         </button>
-        <input ref="importInput" type="file" accept=".csv" style="display:none" @change="handleImportFile" />
+        <input
+          ref="importInput"
+          type="file"
+          accept=".csv"
+          style="display: none"
+          @change="handleImportFile"
+        />
         <button class="btn btn-ghost btn-sm" @click="handleLogout">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
           退出
         </button>
       </div>
@@ -287,8 +388,25 @@ async function saveEdit() {
     <div class="admin-body">
       <!-- Search bar -->
       <div class="search-bar">
-        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-        <input v-model="pswStore.searchQuery" class="input search-input" placeholder="搜索标题、账号或网址..." />
+        <svg
+          class="search-icon"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          v-model="pswStore.searchQuery"
+          class="input search-input"
+          placeholder="搜索标题、账号或网址..."
+        />
       </div>
 
       <!-- Add form -->
@@ -312,7 +430,18 @@ async function saveEdit() {
               <div class="password-input-wrap">
                 <input v-model="form.password" class="input" type="text" placeholder="密码" />
                 <button class="btn btn-ghost btn-sm gen-btn" @click="generatePassword">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
                   生成
                 </button>
               </div>
@@ -322,11 +451,26 @@ async function saveEdit() {
               <input v-model="form.notes" class="input" placeholder="备注信息..." />
             </div>
           </div>
-          <button class="btn btn-primary btn-full" :disabled="!form.title || !form.password || !form.username || adding" @click="addPassword">
+          <button
+            class="btn btn-primary btn-full"
+            :disabled="!form.title || !form.password || !form.username || adding"
+            @click="addPassword"
+          >
             <Transition name="fade" mode="out-in">
               <span v-if="adding && !added" class="spinner" />
               <span v-else-if="added" class="saved-text">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
                 已添加
               </span>
               <span v-else>添加密码</span>
@@ -338,33 +482,156 @@ async function saveEdit() {
       <!-- Import result toast -->
       <Transition name="fade">
         <div v-if="importResult" class="import-toast" @click="importResult = null">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
           {{ importResult }}
+        </div>
+      </Transition>
+
+      <!-- Import confirm modal -->
+      <Transition name="scale">
+        <div v-if="importPreview" class="delete-overlay">
+          <Transition name="slide-up" appear>
+            <div class="import-confirm-dialog glass-card">
+              <div class="import-confirm-icon">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </div>
+              <h3>确认导入密码</h3>
+              <p class="import-confirm-info">
+                文件：<strong>{{ importPreview.fileName }}</strong
+                ><br />
+                共解析到 <strong>{{ importPreview.success }}</strong> 条有效数据
+                <span v-if="importPreview.skipped"
+                  >，<strong>{{ importPreview.skipped }}</strong> 条跳过</span
+                >
+              </p>
+              <p class="import-confirm-warn">确认后将保存到密码库中</p>
+              <div class="import-confirm-actions">
+                <button class="btn btn-ghost" :disabled="importing" @click="cancelImport">
+                  取消
+                </button>
+                <button class="btn btn-primary" :disabled="importing" @click="confirmImport">
+                  <Transition name="fade" mode="out-in">
+                    <span v-if="importing" class="spinner" />
+                    <span v-else>确认导入</span>
+                  </Transition>
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
       </Transition>
 
       <!-- Password list -->
       <div class="list-container">
         <TransitionGroup name="list" tag="div" class="list">
-          <div v-for="item in pswStore.filteredPasswords" :key="item.id" class="password-item glass-card" :class="{ 'is-pinned': item.pinned }">
+          <div
+            v-for="item in pswStore.filteredPasswords"
+            :key="item.id"
+            class="password-item glass-card"
+            :class="{ 'is-pinned': item.pinned }"
+          >
             <div class="item-main">
               <div class="item-icon">
-                <svg v-if="item.pinned" class="pin-badge" width="10" height="10" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                <svg
+                  v-if="item.pinned"
+                  class="pin-badge"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="var(--accent)"
+                  stroke="var(--accent)"
+                  stroke-width="1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"
+                  />
+                </svg>
                 {{ item.title.charAt(0).toUpperCase() }}
               </div>
               <div class="item-info">
                 <span class="item-title">{{ item.title }}</span>
                 <span class="item-meta">
-                  <span v-if="item.username" class="meta-chip" @click="copyToClipboard(item.username, `user-${item.id}`)">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+                  <span
+                    v-if="item.username"
+                    class="meta-chip"
+                    @click="copyToClipboard(item.username, `user-${item.id}`)"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                      />
+                    </svg>
                     {{ item.username }}
                   </span>
-                  <span class="meta-chip password-chip" @click="copyToClipboard(item.password, `psw-${item.id}`)">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  <span
+                    class="meta-chip password-chip"
+                    @click="copyToClipboard(item.password, `psw-${item.id}`)"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                     {{ maskPassword(item.password) }}
                   </span>
-                  <span v-if="item.url" class="meta-chip" @click="copyToClipboard(item.url!, `url-${item.id}`)">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                  <span
+                    v-if="item.url"
+                    class="meta-chip"
+                    @click="copyToClipboard(item.url!, `url-${item.id}`)"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
                     {{ item.url }}
                   </span>
                 </span>
@@ -373,20 +640,86 @@ async function saveEdit() {
             <div class="item-actions">
               <Transition name="fade">
                 <span v-if="copiedField === `user-${item.id}`" class="copy-toast">账号已复制</span>
-                <span v-else-if="copiedField === `psw-${item.id}`" class="copy-toast">密码已复制</span>
-                <span v-else-if="copiedField === `url-${item.id}`" class="copy-toast">网址已复制</span>
+                <span v-else-if="copiedField === `psw-${item.id}`" class="copy-toast"
+                  >密码已复制</span
+                >
+                <span v-else-if="copiedField === `url-${item.id}`" class="copy-toast"
+                  >网址已复制</span
+                >
               </Transition>
-              <button class="btn btn-ghost btn-sm detail-btn" title="详情" @click="detailItem = item">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              <button
+                class="btn btn-ghost btn-sm detail-btn"
+                title="详情"
+                @click="detailItem = item"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
               </button>
               <button class="btn btn-ghost btn-sm detail-btn" title="编辑" @click="startEdit(item)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
               </button>
-              <button class="btn btn-ghost btn-sm detail-btn" :title="item.pinned ? '取消置顶' : '置顶'" @click="pswStore.togglePin(item.id)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" :stroke="item.pinned ? 'var(--accent)' : 'currentColor'" :stroke-width="item.pinned ? '2.5' : '2'" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+              <button
+                class="btn btn-ghost btn-sm detail-btn"
+                :title="item.pinned ? '取消置顶' : '置顶'"
+                @click="pswStore.togglePin(item.id)"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  :stroke="item.pinned ? 'var(--accent)' : 'currentColor'"
+                  :stroke-width="item.pinned ? '2.5' : '2'"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"
+                  />
+                </svg>
               </button>
-              <button class="btn btn-ghost btn-sm btn-icon-only" title="删除" @click="confirmDelete(item.id)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+              <button
+                class="btn btn-ghost btn-sm btn-icon-only"
+                title="删除"
+                @click="confirmDelete(item.id)"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path
+                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                  />
+                </svg>
               </button>
             </div>
           </div>
@@ -395,8 +728,17 @@ async function saveEdit() {
         <!-- Empty state -->
         <Transition name="fade">
           <div v-if="pswStore.filteredPasswords.length === 0" class="empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <p>{{ pswStore.searchQuery ? '没有匹配的结果' : '还没有密码，点击右上角新增' }}</p>
           </div>
@@ -410,7 +752,19 @@ async function saveEdit() {
         <Transition name="slide-up" appear>
           <div class="delete-dialog glass-card">
             <div class="delete-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
             </div>
             <h3>确认删除</h3>
             <p>删除后无法恢复，确定要删除吗？</p>
@@ -436,7 +790,18 @@ async function saveEdit() {
                 <p class="detail-sub">密码详情</p>
               </div>
               <button class="detail-close" @click="detailItem = null">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div class="detail-body">
@@ -447,8 +812,23 @@ async function saveEdit() {
                   <Transition name="fade">
                     <span v-if="copiedField === 'det-user'" class="copy-badge">已复制</span>
                   </Transition>
-                  <button v-if="detailItem.username" class="detail-copy" @click="copyToClipboard(detailItem.username, 'det-user')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  <button
+                    v-if="detailItem.username"
+                    class="detail-copy"
+                    @click="copyToClipboard(detailItem.username, 'det-user')"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -459,8 +839,22 @@ async function saveEdit() {
                   <Transition name="fade">
                     <span v-if="copiedField === 'det-psw'" class="copy-badge">已复制</span>
                   </Transition>
-                  <button class="detail-copy" @click="copyToClipboard(detailItem.password, 'det-psw')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                  <button
+                    class="detail-copy"
+                    @click="copyToClipboard(detailItem.password, 'det-psw')"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -472,7 +866,18 @@ async function saveEdit() {
                     <span v-if="copiedField === 'det-url'" class="copy-badge">已复制</span>
                   </Transition>
                   <button class="detail-copy" @click="copyToClipboard(detailItem.url!, 'det-url')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -482,7 +887,9 @@ async function saveEdit() {
               </div>
             </div>
             <div class="detail-footer">
-              <span class="detail-time">创建于 {{ new Date(detailItem.createdAt).toLocaleString() }}</span>
+              <span class="detail-time"
+                >创建于 {{ new Date(detailItem.createdAt).toLocaleString() }}</span
+              >
             </div>
           </div>
         </Transition>
@@ -502,7 +909,18 @@ async function saveEdit() {
                 <p class="detail-sub">{{ editItem.title }}</p>
               </div>
               <button class="detail-close" @click="cancelEdit">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div class="edit-body">
@@ -518,7 +936,12 @@ async function saveEdit() {
                 <label class="label">密码 *</label>
                 <div class="password-input-wrap">
                   <input v-model="editForm.password" class="input" type="text" placeholder="密码" />
-                  <button class="btn btn-ghost btn-sm gen-btn" @click="editForm.password = generatePassword()">生成</button>
+                  <button
+                    class="btn btn-ghost btn-sm gen-btn"
+                    @click="editForm.password = generatePassword()"
+                  >
+                    生成
+                  </button>
                 </div>
               </div>
               <div class="field">
@@ -532,7 +955,11 @@ async function saveEdit() {
             </div>
             <div class="edit-footer">
               <button class="btn btn-ghost" @click="cancelEdit">取消</button>
-              <button class="btn btn-primary" :disabled="!editForm.title || !editForm.password || !editForm.username || editing" @click="saveEdit">
+              <button
+                class="btn btn-primary"
+                :disabled="!editForm.title || !editForm.password || !editForm.username || editing"
+                @click="saveEdit"
+              >
                 {{ editing ? '保存中...' : '保存修改' }}
               </button>
             </div>
@@ -687,7 +1114,7 @@ async function saveEdit() {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -852,6 +1279,45 @@ async function saveEdit() {
   cursor: pointer;
 }
 
+/* Import confirm dialog */
+.import-confirm-dialog {
+  width: 360px;
+  padding: 32px 24px 24px;
+  text-align: center;
+}
+.import-confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.import-confirm-dialog h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.import-confirm-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.import-confirm-warn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.import-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
 /* Delete dialog */
 .delete-overlay {
   position: fixed;
@@ -860,7 +1326,7 @@ async function saveEdit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
 }
 .delete-dialog {
