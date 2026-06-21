@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { usePasswordStore } from '../stores/password';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { emit } from '@tauri-apps/api/event';
+import { generatePassword } from '../utils/password';
 
 const pswStore = usePasswordStore();
 const form = ref({ title: '', username: '', password: '', url: '', notes: '' });
@@ -24,15 +25,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown);
 });
-
-function generatePassword() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let pwd = '';
-  for (let i = 0; i < 16; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  form.value.password = pwd;
-}
 
 function copyPassword() {
   if (!form.value.password) return;
@@ -108,7 +100,11 @@ function save() {
         <input v-model="form.username" class="input" placeholder="用户名/邮箱 *" />
         <div class="pwd-row">
           <input v-model="form.password" class="input" type="text" placeholder="密码 *" />
-          <button class="btn btn-sm gen-btn" @click="generatePassword" title="生成随机密码">
+          <button
+            class="btn btn-sm gen-btn"
+            @click="form.password = generatePassword()"
+            title="生成随机密码"
+          >
             <svg
               width="14"
               height="14"

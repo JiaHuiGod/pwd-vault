@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { usePasswordStore } from '../stores/password'
 import PasswordVerify from '../components/PasswordVerify.vue'
 import { checkForUpdate } from '../services/updater'
+import { generatePassword } from '../utils/password'
 
 const auth = useAuthStore();
 const pswStore = usePasswordStore();
@@ -32,15 +33,6 @@ const currentShortcut = ref('');
 const pendingShortcut = ref('');
 const recorderRef = ref<HTMLElement | null>(null)
 const liveKey = ref('');
-
-function generatePassword() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let pwd = '';
-  for (let i = 0; i < 16; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  form.password = pwd;
-}
 
 async function restoreShortcut() {
   try {
@@ -277,7 +269,7 @@ function saveQuickPassword() {
               <input v-model="form.password" class="input" type="text" placeholder="密码" />
               <button
                 class="btn btn-ghost btn-sm gen-btn"
-                @click="generatePassword"
+                @click="form.password = generatePassword()"
                 title="生成随机密码"
               >
                 <svg

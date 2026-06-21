@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { useAuthStore } from '../stores/auth';
 import { usePasswordStore } from '../stores/password';
 import type { PasswordItem } from '../types';
+import { generatePassword } from '../utils/password';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -242,16 +243,6 @@ function copyToClipboard(text: string, field: string) {
   }, 1200);
 }
 
-function generatePassword() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let pwd = '';
-  for (let i = 0; i < 16; i++) {
-    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  form.value.password = pwd;
-  return pwd;
-}
-
 function handleLogout() {
   auth.logout();
   router.push('/');
@@ -429,7 +420,7 @@ async function saveEdit() {
               <label class="label">密码 *</label>
               <div class="password-input-wrap">
                 <input v-model="form.password" class="input" type="text" placeholder="密码" />
-                <button class="btn btn-ghost btn-sm gen-btn" @click="generatePassword">
+                <button class="btn btn-ghost btn-sm gen-btn" @click="form.password = generatePassword()">
                   <svg
                     width="14"
                     height="14"
