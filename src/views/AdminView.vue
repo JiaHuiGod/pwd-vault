@@ -346,9 +346,10 @@ async function saveEdit() {
       <!-- Password list -->
       <div class="list-container">
         <TransitionGroup name="list" tag="div" class="list">
-          <div v-for="item in pswStore.filteredPasswords" :key="item.id" class="password-item glass-card">
+          <div v-for="item in pswStore.filteredPasswords" :key="item.id" class="password-item glass-card" :class="{ 'is-pinned': item.pinned }">
             <div class="item-main">
               <div class="item-icon">
+                <svg v-if="item.pinned" class="pin-badge" width="10" height="10" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
                 {{ item.title.charAt(0).toUpperCase() }}
               </div>
               <div class="item-info">
@@ -380,6 +381,9 @@ async function saveEdit() {
               </button>
               <button class="btn btn-ghost btn-sm detail-btn" title="编辑" @click="startEdit(item)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              </button>
+              <button class="btn btn-ghost btn-sm detail-btn" :title="item.pinned ? '取消置顶' : '置顶'" @click="pswStore.togglePin(item.id)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" :stroke="item.pinned ? 'var(--accent)' : 'currentColor'" :stroke-width="item.pinned ? '2.5' : '2'" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
               </button>
               <button class="btn btn-ghost btn-sm btn-icon-only" title="删除" @click="confirmDelete(item.id)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
@@ -715,9 +719,20 @@ async function saveEdit() {
   transition: all var(--transition-normal);
   cursor: default;
 }
+.password-item.is-pinned {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.password-item.is-pinned .item-icon {
+  background: linear-gradient(135deg, var(--accent), rgba(99, 102, 241, 0.3));
+  color: #fff;
+}
 .password-item:hover {
   border-color: var(--border-accent);
   transform: translateX(4px);
+}
+.password-item.is-pinned:hover {
+  border-color: var(--accent);
 }
 
 .item-main {
@@ -728,6 +743,7 @@ async function saveEdit() {
 }
 
 .item-icon {
+  position: relative;
   width: 40px;
   height: 40px;
   border-radius: 10px;
@@ -739,6 +755,11 @@ async function saveEdit() {
   font-weight: 600;
   font-size: 0.9rem;
   flex-shrink: 0;
+}
+.pin-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
 }
 
 .item-info {

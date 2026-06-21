@@ -25,7 +25,11 @@ export const usePasswordStore = defineStore('passwords', () => {
           p.url?.toLowerCase().includes(q),
       )
     }
-    return list.slice().sort((a, b) => b.createdAt - a.createdAt)
+    return list.slice().sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return b.createdAt - a.createdAt
+    })
   })
 
   /** Load passwords from vault. Must be called after login. */
@@ -141,6 +145,14 @@ export const usePasswordStore = defineStore('passwords', () => {
     }
   }
 
+  async function togglePin(id: string) {
+    const idx = passwords.value.findIndex((p) => p.id === id)
+    if (idx !== -1) {
+      passwords.value[idx].pinned = !passwords.value[idx].pinned
+      await _save()
+    }
+  }
+
   /** Reload from vault using the cached admin password. */
   async function reloadIfLoggedIn(): Promise<boolean> {
     if (!_adminPassword.value) return false
@@ -156,6 +168,7 @@ export const usePasswordStore = defineStore('passwords', () => {
     addPassword,
     deletePassword,
     updatePassword,
+    togglePin,
     reloadIfLoggedIn,
   }
 })

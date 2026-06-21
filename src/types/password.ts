@@ -7,6 +7,7 @@ export interface PasswordItem {
   notes?: string
   createdAt: number
   updatedAt: number
+  pinned?: boolean
 }
 
 export interface QuickPassword {
