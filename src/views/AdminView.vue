@@ -709,6 +709,7 @@ async function saveEdit() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 0 4px;
 }
 
 .password-item {
