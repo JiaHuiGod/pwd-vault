@@ -4,7 +4,7 @@ mod store;
 use std::sync::Mutex;
 use tauri::{
     Emitter, Manager,
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     WindowEvent,
 };
@@ -194,7 +194,92 @@ fn set_global_shortcut(app: tauri::AppHandle, combo: String) -> Result<(), Strin
     Ok(())
 }
 
-// ─── Entry Point ─────────────────────────────────────────────────
+// ─── Autostart ───────────────────────────────────────────────────
+
+const AUTOSTART_KEY: &str = "Password Vault";
+
+#[cfg(windows)]
+fn get_app_exe() -> String {
+    std::env::current_exe()
+        .ok()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(not(windows))]
+fn get_app_exe() -> String {
+    String::new()
+}
+
+fn is_autostart_enabled() -> bool {
+    #[cfg(windows)]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let run = hkcu.open_subkey_with_flags(
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            winreg::enums::KEY_READ,
+        );
+        match run {
+            Ok(key) => key.get_value::<String, _>(AUTOSTART_KEY).is_ok(),
+            Err(_) => false,
+        }
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+fn set_autostart(enabled: bool) {
+    #[cfg(windows)]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_ALL_ACCESS, KEY_SET_VALUE};
+        use winreg::reg_key::RegKey;
+        use winreg::RegValue;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+        // Write/delete the Run entry
+        {
+            let run = hkcu
+                .open_subkey_with_flags(
+                    r"Software\Microsoft\Windows\CurrentVersion\Run",
+                    KEY_SET_VALUE,
+                )
+                .unwrap_or_else(|_| {
+                    hkcu.create_subkey(r"Software\Microsoft\Windows\CurrentVersion\Run")
+                        .unwrap()
+                        .0
+                });
+
+            if enabled {
+                let exe = get_app_exe();
+                let _ = run.set_value(AUTOSTART_KEY, &exe);
+            } else {
+                let _ = run.delete_value(AUTOSTART_KEY);
+            }
+        }
+
+        // Mark as user-approved in StartupApproved so Task Manager shows it
+        {
+            let approved_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+            let approved = hkcu
+                .open_subkey_with_flags(approved_path, KEY_ALL_ACCESS);
+            if let Ok(key) = approved {
+                if enabled {
+                    // 03 = enabled by user
+                    let bytes: [u8; 12] = [0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+                    let _ = key.set_raw_value(AUTOSTART_KEY, &RegValue {
+                        bytes: bytes.to_vec(),
+                        vtype: winreg::enums::RegType::REG_BINARY,
+                    });
+                } else {
+                    let _ = key.delete_value(AUTOSTART_KEY);
+                }
+            }
+        }
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -204,19 +289,29 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            let autostart_item = CheckMenuItem::with_id(app, "autostart", "开机自启", true, false, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let quick_add =
                 MenuItem::with_id(app, "quick_add", "快速添加密码", true, None::<&str>)?;
             let reset_pref =
                 MenuItem::with_id(app, "reset_pref", "重置关闭记忆", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &quick_add, &reset_pref, &quit])?;
+            let menu = Menu::with_items(app, &[&autostart_item, &separator, &show, &quick_add, &reset_pref, &quit])?;
+
+            // 同步 autostart 实际状态到勾选
+            let _ = autostart_item.set_checked(is_autostart_enabled());
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Password Vault")
                 .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "autostart" => {
+                        let is_enabled = is_autostart_enabled();
+                        set_autostart(!is_enabled);
+                        let _ = autostart_item.set_checked(!is_enabled);
+                    }
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
