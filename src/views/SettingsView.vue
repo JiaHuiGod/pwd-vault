@@ -30,7 +30,7 @@ onMounted(async () => {
     const result = await invoke<ProxyConfig>('get_proxy_config')
     Object.assign(config, result)
   } catch {
-    errorMsg.value = '加载代理配置失败'
+    errorMsg.value = '加载设置失败'
   } finally {
     loading.value = false
   }
@@ -75,7 +75,6 @@ async function saveConfig() {
         </button>
         <div class="header-info">
           <h1 class="gradient-text">设置</h1>
-          <p class="header-sub">代理配置</p>
         </div>
       </div>
     </header>
@@ -87,56 +86,59 @@ async function saveConfig() {
       </div>
 
       <Transition name="fade" mode="out-in">
-        <div v-if="!loading" class="settings-card glass-card glow-border">
-          <div class="settings-card-header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <span>网络代理</span>
-          </div>
-          <p class="settings-desc">配置后，应用将通过代理服务器进行网络连接（更新检查等）。</p>
-
-          <div class="settings-form">
-            <label class="checkbox-wrapper">
-              <input type="checkbox" v-model="config.enabled" />
-              启用代理
-            </label>
-
-            <div class="field">
-              <label class="label">主机地址</label>
-              <input v-model="config.host" class="input" placeholder="例如: 127.0.0.1" :disabled="!config.enabled" />
+        <div v-if="!loading" class="settings-sections">
+          <!-- 网络代理 -->
+          <div class="settings-card glass-card glow-border">
+            <div class="settings-card-header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>网络代理</span>
             </div>
+            <p class="settings-desc">配置后，应用将通过代理服务器进行网络连接（更新检查等）。</p>
 
-            <div class="field">
-              <label class="label">端口</label>
-              <input v-model.number="config.port" class="input" type="number" placeholder="8080" :disabled="!config.enabled" min="1" max="65535" />
+            <div class="settings-form">
+              <label class="checkbox-wrapper">
+                <input type="checkbox" v-model="config.enabled" />
+                启用代理
+              </label>
+
+              <div class="field">
+                <label class="label">主机地址</label>
+                <input v-model="config.host" class="input" placeholder="例如: 127.0.0.1" :disabled="!config.enabled" />
+              </div>
+
+              <div class="field">
+                <label class="label">端口</label>
+                <input v-model.number="config.port" class="input" type="number" placeholder="8080" :disabled="!config.enabled" min="1" max="65535" />
+              </div>
+
+              <div class="field">
+                <label class="label">用户名（可选）</label>
+                <input v-model="config.username" class="input" placeholder="用户名" :disabled="!config.enabled" />
+              </div>
+
+              <div class="field">
+                <label class="label">密码（可选）</label>
+                <input v-model="config.password" class="input" type="password" placeholder="密码" :disabled="!config.enabled" />
+              </div>
+
+              <Transition name="fade">
+                <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+                <p v-else-if="successMsg" class="success-msg">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  已保存
+                </p>
+              </Transition>
+
+              <button class="btn btn-primary btn-full" :disabled="saving || loading" @click="saveConfig">
+                <span v-if="saving" class="spinner" />
+                <span v-else>保存设置</span>
+              </button>
             </div>
-
-            <div class="field">
-              <label class="label">用户名（可选）</label>
-              <input v-model="config.username" class="input" placeholder="用户名" :disabled="!config.enabled" />
-            </div>
-
-            <div class="field">
-              <label class="label">密码（可选）</label>
-              <input v-model="config.password" class="input" type="password" placeholder="密码" :disabled="!config.enabled" />
-            </div>
-
-            <Transition name="fade">
-              <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-              <p v-else-if="successMsg" class="success-msg">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                已保存
-              </p>
-            </Transition>
-
-            <button class="btn btn-primary btn-full" :disabled="saving || loading" @click="saveConfig">
-              <span v-if="saving" class="spinner" />
-              <span v-else>保存设置</span>
-            </button>
           </div>
         </div>
       </Transition>
@@ -206,12 +208,6 @@ async function saveConfig() {
   font-weight: 700;
 }
 
-.header-sub {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
 .settings-body {
   flex: 1;
   display: flex;
@@ -241,11 +237,16 @@ async function saveConfig() {
   display: inline-block;
 }
 
-.settings-card {
+.settings-sections {
   width: 100%;
-  max-width: 460px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-card {
   padding: 24px;
-  align-self: flex-start;
 }
 
 .settings-card-header {

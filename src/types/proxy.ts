@@ -5,3 +5,7 @@ export interface ProxyConfig {
   username?: string
   password?: string
 }
+
+export interface AppSettings {
+  proxy: ProxyConfig
+}
