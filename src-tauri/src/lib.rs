@@ -254,7 +254,7 @@ fn set_autostart(enabled: bool) {
 
             if enabled {
                 let exe = get_app_exe();
-                let _ = run.set_value(AUTOSTART_KEY, &exe);
+                let _ = run.set_value(AUTOSTART_KEY, &format!("\"{}\" --autostart", exe));
             } else {
                 let _ = run.delete_value(AUTOSTART_KEY);
             }
@@ -301,6 +301,15 @@ pub fn run() {
 
             // 同步 autostart 实际状态到勾选
             let _ = autostart_item.set_checked(is_autostart_enabled());
+
+            // 开机自启时静默启动（仅托盘运行，不弹出窗口）
+            let args: Vec<String> = std::env::args().collect();
+            let is_autostart = args.iter().any(|a| a == "--autostart");
+            if !is_autostart {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            }
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
