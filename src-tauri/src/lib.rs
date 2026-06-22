@@ -1,4 +1,5 @@
 mod crypto;
+mod proxy;
 mod store;
 
 use std::sync::Mutex;
@@ -311,6 +312,9 @@ pub fn run() {
                 }
             }
 
+            // 应用代理配置
+            proxy::apply_proxy(app.handle());
+
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Password Vault")
@@ -358,6 +362,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            proxy::get_proxy_config,
+            proxy::set_proxy_config,
             create_quick_add_window,
             set_global_shortcut,
             encrypt_save,

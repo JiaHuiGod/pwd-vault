@@ -5,7 +5,7 @@ use tauri::Manager;
 /// Returns the config directory path for vault data.
 /// - Dev mode: `<project_root>/config`
 /// - Production: `<app_data_dir>/config`
-fn config_dir(app_handle: &tauri::AppHandle) -> PathBuf {
+pub fn config_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     if tauri::is_dev() {
         // In dev mode, try to find the project root from the current dir
         // The dev server runs from the frontend dir, so we need to go up
