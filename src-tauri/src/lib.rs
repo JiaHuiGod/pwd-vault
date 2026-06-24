@@ -289,6 +289,13 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // 当用户再次双击 exe 时，将已有窗口唤起到前台
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
             let autostart_item = CheckMenuItem::with_id(app, "autostart", "开机自启", true, false, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
